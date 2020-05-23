@@ -5,6 +5,7 @@ use gl::types::{
 };
 
 use super::shader::Shader;
+use crate::Resources;
 
 
 // TODO: rename?
@@ -18,6 +19,22 @@ impl Program {
         unsafe {
             gl::UseProgram(self.id);
         }
+    }
+
+    /// creates a program out of a folder path that contains both a fragment shader and vertex shader
+    pub fn from_resources(res: &Resources, name: &str) -> Result<Program, String> {
+        const POSSIBLE_EXT: [&str; 2] = [
+            ".vert",
+            ".frag",
+        ];
+
+        let shaders = POSSIBLE_EXT.iter()
+            .map(|file_extension| {
+                Shader::from_resources(res, &format!("{}{}", name, file_extension))
+            })
+            .collect::<Result<Vec<Shader>, String>>()?;
+
+        Program::from_shaders(&shaders[..])
     }
 
     // TODO: assert valid shader composition (define minimum shader requirements for a program)

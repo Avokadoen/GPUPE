@@ -9,6 +9,8 @@ use resources::Resources;
 use std::path::Path;
 
 fn main() {
+    let res = Resources::from_relative_path(Path::new("assets")).unwrap();
+
     let sdl = sdl2::init().unwrap();
     let video_subsystem = sdl.video().unwrap();
 
@@ -41,43 +43,50 @@ fn main() {
         gl::ClearColor(0.0, 0.0, 0.0, 1.0);
     }
 
-    let triangle_program = {
-        use renderer::{shader::Shader, program::Program};
+    // create quad data
+    let triangle_program = renderer::program::Program::from_resources(&res, "shaders/triangle").unwrap();
 
-        let shaders = {
-            use std::ffi::CString;
-
-            let vert_shader = Shader::from_vert_source(
-                &CString::new(include_str!("../resources/shaders/triangle.vert")).unwrap()
-            ).unwrap();
-        
-            let frag_shader = Shader::from_frag_source(
-                &CString::new(include_str!("../resources/shaders/triangle.frag")).unwrap()
-            ).unwrap();
-
-            &[vert_shader, frag_shader]
-        };
-
-        Program::from_shaders(shaders).unwrap()
-    };
 
     let vertices: Vec<f32> = vec![
-        -0.5, -0.5, 0.0,
-        0.5, -0.5, 0.0,
-        0.0, 0.5, 0.0
+    //   x,   y   z,   u,   v   
+        -1.0, -1.0, 0.0, 0.0, 0.0,
+         1.0,  1.0, 0.0, 1.0, 1.0,
+        -1.0,  1.0, 0.0, 0.0, 1.0,
+         1.0, -1.0, 0.0, 1.0, 0.0
     ];
 
-    let mut vbo: gl::types::GLuint = 0;
+    let mut v_vbo: gl::types::GLuint = 0;
     unsafe {
-        gl::GenBuffers(1, &mut vbo);
+        gl::GenBuffers(1, &mut v_vbo);
     }
 
     unsafe {
-        gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+        gl::BindBuffer(gl::ARRAY_BUFFER, v_vbo);
         gl::BufferData(
             gl::ARRAY_BUFFER, // target
             (vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr, // size of data in bytes
             vertices.as_ptr() as *const gl::types::GLvoid, // pointer to data
+            gl::STATIC_DRAW, // usage
+        );
+        gl::BindBuffer(gl::ARRAY_BUFFER, 0); // unbind the buffer
+    }
+
+    let indices: Vec<u32> = vec![
+        0, 1, 2,
+        0, 1, 3
+    ];
+
+    let mut i_vbo: gl::types::GLuint = 1;
+    unsafe {
+        gl::GenBuffers(1, &mut i_vbo);
+    }
+
+    unsafe {
+        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, i_vbo);
+        gl::BufferData(
+            gl::ELEMENT_ARRAY_BUFFER, // target
+            (indices.len() * std::mem::size_of::<u32>()) as gl::types::GLsizeiptr, // size of data in bytes
+            indices.as_ptr() as *const gl::types::GLvoid, // pointer to data
             gl::STATIC_DRAW, // usage
         );
         gl::BindBuffer(gl::ARRAY_BUFFER, 0); // unbind the buffer
@@ -91,16 +100,27 @@ fn main() {
     unsafe {
         gl::BindVertexArray(vao);
         
-        gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+        gl::BindBuffer(gl::ARRAY_BUFFER, v_vbo);
 
+        let stride = (5 * std::mem::size_of::<f32>()) as gl::types::GLint;
         gl::EnableVertexAttribArray(0); // this is "layout (location = 0)" in vertex shader
         gl::VertexAttribPointer(
             0, // index of the generic vertex attribute ("layout (location = 0)")
             3, // the number of components per generic vertex attribute
             gl::FLOAT, // data type
             gl::FALSE, // normalized (int-to-float conversion)
-            (3 * std::mem::size_of::<f32>()) as gl::types::GLint, // stride (byte offset between consecutive attributes)
+            stride, // stride (byte offset between consecutive attributes)
             std::ptr::null() // offset of the first component
+        );
+
+        gl::EnableVertexAttribArray(1); 
+        gl::VertexAttribPointer(
+            1, 
+            2, 
+            gl::FLOAT,
+            gl::FALSE, 
+            stride, 
+            (3 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid
         );
 
         gl::BindBuffer(gl::ARRAY_BUFFER, 0);
@@ -128,11 +148,17 @@ fn main() {
 
         unsafe {
             gl::BindVertexArray(vao);
-            gl::DrawArrays(
-                gl::TRIANGLES, // mode
-                0, // starting index in the enabled arrays
-                3 // number of indices to be rendered
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, i_vbo);
+
+            gl::DrawElements(
+                gl::TRIANGLES, 
+                indices.len() as i32, 
+                gl::UNSIGNED_INT,
+                std::ptr::null()
             );
+
+            gl::BindVertexArray(0);
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
         }
 
         window.gl_swap_window();
