@@ -9,6 +9,7 @@ walkdir = "2.3.1"
 
 [dependencies]
 gl = "0.14.0"
+image = "0.23.4"
 
 [dependencies.sdl2]
 version = "0.34.0"

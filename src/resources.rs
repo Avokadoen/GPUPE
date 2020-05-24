@@ -3,6 +3,12 @@ use std::fs;
 use std::io::{self, Read};
 use std::ffi;
 
+use image::{
+    error::ImageResult,
+    DynamicImage,
+};
+
+
 #[derive(Debug)]
 pub enum Error {
     Io(io::Error),
@@ -50,6 +56,14 @@ impl Resources {
         }
 
         Ok(unsafe { ffi::CString::from_vec_unchecked(buffer) })
+    }
+
+    pub fn load_image(&self, resource_name: &str) -> ImageResult<DynamicImage> {
+        // TODO: validate extension name to be supported format
+
+        image::open(
+            resource_name_to_path(&self.root_path, resource_name)
+        )
     }
 }
 

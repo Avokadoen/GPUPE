@@ -43,12 +43,13 @@ fn main() {
         gl::ClearColor(0.0, 0.0, 0.0, 1.0);
     }
 
+    // TODO: if we want chunks, then this should be generalized (buffers)
+    // TODO: rename: triangle -> default
     // create quad data
     let triangle_program = renderer::program::Program::from_resources(&res, "shaders/triangle").unwrap();
 
-
     let vertices: Vec<f32> = vec![
-    //   x,   y   z,   u,   v   
+    //   x,    y    z,   u,   v   
         -1.0, -1.0, 0.0, 0.0, 0.0,
          1.0,  1.0, 0.0, 1.0, 1.0,
         -1.0,  1.0, 0.0, 0.0, 1.0,
@@ -59,6 +60,7 @@ fn main() {
     unsafe {
         gl::GenBuffers(1, &mut v_vbo);
     }
+    let v_vbo: gl::types::GLuint = v_vbo;
 
     unsafe {
         gl::BindBuffer(gl::ARRAY_BUFFER, v_vbo);
@@ -76,10 +78,11 @@ fn main() {
         0, 1, 3
     ];
 
-    let mut i_vbo: gl::types::GLuint = 1;
+    let mut i_vbo: gl::types::GLuint = 0;
     unsafe {
         gl::GenBuffers(1, &mut i_vbo);
     }
+    let i_vbo: gl::types::GLuint = i_vbo;
 
     unsafe {
         gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, i_vbo);
@@ -91,6 +94,8 @@ fn main() {
         );
         gl::BindBuffer(gl::ARRAY_BUFFER, 0); // unbind the buffer
     }
+
+    //let mut texture:
 
     let mut vao: gl::types::GLuint = 0;
     unsafe {

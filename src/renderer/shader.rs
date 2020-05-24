@@ -1,6 +1,6 @@
 
 // Used for shaders
-use std::ffi::{CStr};
+use std::ffi::CStr;
 
 // TODO: super::super is probably a symptom of bad architecture
 use crate::resources::Resources;
@@ -83,14 +83,6 @@ impl Shader {
             id
         };
         Ok(Shader { id })
-    }
-
-    pub fn from_vert_source(source: &CStr) -> Result<Shader, String> {
-        Shader::from_source(source, gl::VERTEX_SHADER)
-    }
-
-    pub fn from_frag_source(source: &CStr) -> Result<Shader, String> {
-        Shader::from_source(source, gl::FRAGMENT_SHADER)
     }
 }
 
