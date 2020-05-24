@@ -37,7 +37,6 @@ impl Program {
         Program::from_shaders(&shaders[..])
     }
 
-    // TODO: assert valid shader composition (define minimum shader requirements for a program)
     pub fn from_shaders(shaders: &[Shader]) -> Result<Program, String> {
         let program_id = unsafe { gl::CreateProgram() };
 

@@ -16,3 +16,5 @@ The actual implementation will accept contribution. However, this prototype will
 Using gl and sdl bindings for rust: https://github.com/Nercury/rust-and-opengl-lessons
 
 Opengl textures: https://learnopengl.com/Getting-started/Textures
+
+Using opengl compute shaders: https://antongerdelan.net/opengl/compute.html

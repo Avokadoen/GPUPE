@@ -4,12 +4,15 @@ extern crate image;
 
 use sdl2::event::Event;
 use std::path::Path;
-use image::DynamicImage;
 
 mod renderer;
 mod resources;
 
 use resources::Resources;
+use renderer::{
+    program::Program, 
+    shader::Shader
+};
 
 fn main() {
     let res = Resources::from_relative_path(Path::new("assets")).unwrap();
@@ -26,8 +29,8 @@ fn main() {
         gl_attr.set_context_version(4, 5);
     }
 
-    let window_x: u32 = 900;
-    let window_y: u32 = 700;
+    let window_x: u32 = 512;
+    let window_y: u32 = 512;
 
     let window = video_subsystem
         .window("GPUPE prototype", window_x, window_y)
@@ -49,7 +52,7 @@ fn main() {
     // TODO: if we want chunks, then this should be generalized (buffers)
     // TODO: rename: triangle -> default
     // create quad data
-    let triangle_program = renderer::program::Program::from_resources(&res, "shaders/triangle").unwrap();
+    let triangle_program = Program::from_resources(&res, "shaders/triangle").unwrap();
 
     let vertices: Vec<f32> = vec![
     //   x,    y    z,   u,   v   
@@ -99,28 +102,46 @@ fn main() {
     }
 
     // TODO: Handle error, we don't really even need a texture loading yet. just a image buffer that we will write to
-    let rust_image = res.load_image("textures/rust.png")
-        .unwrap()
-        .into_rgba();
+    // let rust_image = res.load_image("textures/water_test.png")
+    //     .unwrap()
+    //     .into_rgba();
     
-    let mut texture: gl::types::GLuint = 0;
-    unsafe {
-        gl::GenTextures(1, &mut texture);
+    // let mut texture: gl::types::GLuint = 0;
+    // unsafe {
+    //     gl::GenTextures(1, &mut texture);
  
-        gl::BindTexture(gl::TEXTURE_2D, texture);
-        gl::TexImage2D(
-            gl::TEXTURE_2D,
-            0, 
-            gl::RGBA as i32, 
-            rust_image.width() as i32, 
-            rust_image.height() as i32, 
-            0,
-            gl::RGBA,
-            gl::UNSIGNED_BYTE,
-            rust_image.into_raw().as_ptr() as *const std::ffi::c_void
-        );
-        gl::GenerateMipmap(gl::TEXTURE_2D);
+    //     gl::BindTexture(gl::TEXTURE_2D, texture);
+    //     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
+    //     gl::TexImage2D(
+    //         gl::TEXTURE_2D,
+    //         0, 
+    //         gl::RGBA32F as i32, 
+    //         rust_image.width() as i32, 
+    //         rust_image.height() as i32, 
+    //         0,
+    //         gl::RGBA,
+    //         gl::UNSIGNED_BYTE,
+    //         rust_image.into_raw().as_ptr() as *const std::ffi::c_void
+    //     );
+    //     gl::GenerateMipmap(gl::TEXTURE_2D);
+    // }
+
+    // TODO: this is just test code to make compute shader work
+    // dimensions of the image
+    let (tex_w, tex_h) = (window_x, window_y);
+    let mut tex_output: gl::types::GLuint = 0;
+    unsafe { 
+        gl::GenTextures(1, &mut tex_output);
+        gl::ActiveTexture(gl::TEXTURE0);
+        gl::BindTexture(gl::TEXTURE_2D, tex_output);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+        gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA32F  as i32, tex_w as i32, tex_h as i32, 0, gl::RGBA, gl::FLOAT,std::ptr::null());
+        gl::BindImageTexture(0, tex_output, 0, gl::FALSE, 0, gl::READ_WRITE, gl::RGBA32F);
     }
+    let tex_output = tex_output;
 
     let mut vao: gl::types::GLuint = 0;
     unsafe {
@@ -154,6 +175,34 @@ fn main() {
         gl::BindVertexArray(0);
     }
 
+    // Retrieve work group count limit
+    let mut work_group_count_limit = [0, 0, 0];
+    unsafe {
+        gl::GetIntegeri_v(gl::MAX_COMPUTE_WORK_GROUP_COUNT, 0, &mut work_group_count_limit[0]);
+        gl::GetIntegeri_v(gl::MAX_COMPUTE_WORK_GROUP_COUNT, 1, &mut work_group_count_limit[1]);
+        gl::GetIntegeri_v(gl::MAX_COMPUTE_WORK_GROUP_COUNT, 2, &mut work_group_count_limit[2]);
+    }
+    let work_group_count_limit = work_group_count_limit;
+
+    // Retrieve work group size limit
+    let mut work_group_size_limit = [0, 0, 0];
+    unsafe {
+        gl::GetIntegeri_v(gl::MAX_COMPUTE_WORK_GROUP_SIZE, 0, &mut work_group_size_limit[0]);
+        gl::GetIntegeri_v(gl::MAX_COMPUTE_WORK_GROUP_SIZE, 1, &mut work_group_size_limit[1]);
+        gl::GetIntegeri_v(gl::MAX_COMPUTE_WORK_GROUP_SIZE, 2, &mut work_group_size_limit[2]);
+    }
+    let work_group_size_limit = work_group_size_limit;
+
+    let mut work_group_invocation_limit = 0;
+    unsafe {
+        gl::GetIntegerv(gl::MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &mut work_group_invocation_limit);
+    }
+    let work_group_invocation_limit = work_group_invocation_limit;
+
+    let state_update_comp = {
+        let shader = renderer::shader::Shader::from_resources(&res, "shaders/state_update.comp").unwrap();
+        Program::from_shaders(&[shader]).unwrap()
+    }; 
 
 
     let mut event_pump = sdl.event_pump().unwrap();
@@ -171,10 +220,16 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
+        state_update_comp.set_used();
+        unsafe {
+            gl::DispatchCompute(tex_w, tex_h, 1);
+            gl::MemoryBarrier(gl::SHADER_IMAGE_ACCESS_BARRIER_BIT);
+        }
+
         triangle_program.set_used();
 
         unsafe {
-            gl::BindTexture(gl::TEXTURE_2D, texture);
+            gl::BindTexture(gl::TEXTURE_2D, tex_output);
             gl::BindVertexArray(vao);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, i_vbo);
 
@@ -192,4 +247,5 @@ fn main() {
 
         window.gl_swap_window();
     }
+
 }

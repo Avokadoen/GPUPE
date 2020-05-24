@@ -26,9 +26,10 @@ impl Shader {
     }
 
     pub fn from_resources(resources: &Resources, name: &str) -> Result<Shader, String> {
-        const POSSIBLE_EXT: [(&str, gl::types::GLenum); 2] = [
+        const POSSIBLE_EXT: [(&str, gl::types::GLenum); 3] = [
             (".vert", gl::VERTEX_SHADER),
             (".frag", gl::FRAGMENT_SHADER),
+            (".comp", gl::COMPUTE_SHADER)
         ];
 
         let shader_kind = POSSIBLE_EXT.iter()
