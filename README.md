@@ -1,4 +1,5 @@
 # GL GPUPE
+
 Currently: just a playground for opengl + sdl in rust
 
 Planned: 
@@ -9,10 +10,18 @@ If the mistakes are held to a minimum I will attempt to build the high-level sys
 
 The draft can be found [here TODO](todo). 
 
+# Gifs
+
+Using compute shader to update a texture
+
+![compute shader test](https://i.imgur.com/ZeeIWbb.gif)
+
 # Contribution
+
 The actual implementation will accept contribution. However, this prototype will not as it serves as a learning experience for me
 
 # Sources
+
 Using gl and sdl bindings for rust: https://github.com/Nercury/rust-and-opengl-lessons
 
 Opengl textures: https://learnopengl.com/Getting-started/Textures

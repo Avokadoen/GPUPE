@@ -215,6 +215,7 @@ fn main() {
     }; 
 
     let mut event_pump = sdl.event_pump().unwrap();
+    let mut dispatch_count = 0;
     'main: loop {
         for event in event_pump.poll_iter() {
             match event {
@@ -228,11 +229,14 @@ fn main() {
         unsafe {
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
-
-        state_update_comp.set_used();
-        unsafe {
-            gl::DispatchCompute(tex_w, tex_h, 1);
-            gl::MemoryBarrier(gl::SHADER_IMAGE_ACCESS_BARRIER_BIT);
+        
+        if dispatch_count < 100 {
+            state_update_comp.set_used();
+            unsafe {
+                gl::DispatchCompute(tex_w, tex_h, 1);
+                gl::MemoryBarrier(gl::SHADER_IMAGE_ACCESS_BARRIER_BIT);
+            }
+            dispatch_count += 1;
         }
 
         triangle_program.set_used();
