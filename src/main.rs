@@ -101,10 +101,6 @@ fn main() {
         gl::BindBuffer(gl::ARRAY_BUFFER, 0); // unbind the buffer
     }
 
-    // TODO: Handle error, we don't really even need a texture loading yet. just a image buffer that we will write to
-    // let rust_image = res.load_image("textures/water_test.png")
-    //     .unwrap()
-    //     .into_rgba();
     
     // let mut texture: gl::types::GLuint = 0;
     // unsafe {
@@ -128,6 +124,9 @@ fn main() {
 
     // TODO: this is just test code to make compute shader work
     // dimensions of the image
+    let rust_image = res.load_image("textures/water_test.png")
+        .unwrap()
+        .into_rgba();
     let (tex_w, tex_h) = (window_x, window_y);
     let mut tex_output: gl::types::GLuint = 0;
     unsafe { 
@@ -138,7 +137,17 @@ fn main() {
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
-        gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA32F  as i32, tex_w as i32, tex_h as i32, 0, gl::RGBA, gl::FLOAT,std::ptr::null());
+        gl::TexImage2D(
+            gl::TEXTURE_2D, 
+            0, 
+            gl::RGBA32F as i32, 
+            rust_image.width() as i32, 
+            rust_image.height() as i32, 
+            0, 
+            gl::RGBA, 
+            gl::UNSIGNED_BYTE, 
+            rust_image.into_raw().as_ptr() as *const std::ffi::c_void
+        );
         gl::BindImageTexture(0, tex_output, 0, gl::FALSE, 0, gl::READ_WRITE, gl::RGBA32F);
     }
     let tex_output = tex_output;
@@ -175,6 +184,7 @@ fn main() {
         gl::BindVertexArray(0);
     }
 
+    // TODO: create a compute shader abstraction, used this in the abstraction somewhere where it can be shared
     // Retrieve work group count limit
     let mut work_group_count_limit = [0, 0, 0];
     unsafe {
@@ -203,7 +213,6 @@ fn main() {
         let shader = renderer::shader::Shader::from_resources(&res, "shaders/state_update.comp").unwrap();
         Program::from_shaders(&[shader]).unwrap()
     }; 
-
 
     let mut event_pump = sdl.event_pump().unwrap();
     'main: loop {
