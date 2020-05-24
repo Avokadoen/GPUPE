@@ -1,4 +1,7 @@
 # GL GPUPE
+Currently: just a playground for opengl + sdl in rust
+
+Planned: 
 This is a proof of concept for a pixel engine I have been drafting. 
 The plan is to use gfx-hal + a window framework (winit?) to build the actual engine,
 I wanted to have a simpler environment to build a prototype in to get some experience first.
@@ -11,4 +14,5 @@ The actual implementation will accept contribution. However, this prototype will
 
 # Sources
 Using gl and sdl bindings for rust: https://github.com/Nercury/rust-and-opengl-lessons
+
 Opengl textures: https://learnopengl.com/Getting-started/Textures
