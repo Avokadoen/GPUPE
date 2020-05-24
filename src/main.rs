@@ -1,12 +1,15 @@
 extern crate gl;
 extern crate sdl2;
+extern crate image;
+
+use sdl2::event::Event;
+use std::path::Path;
+use image::DynamicImage;
 
 mod renderer;
 mod resources;
 
-use sdl2::event::Event;
 use resources::Resources;
-use std::path::Path;
 
 fn main() {
     let res = Resources::from_relative_path(Path::new("assets")).unwrap();
@@ -50,10 +53,10 @@ fn main() {
 
     let vertices: Vec<f32> = vec![
     //   x,    y    z,   u,   v   
-        -1.0, -1.0, 0.0, 0.0, 0.0,
-         1.0,  1.0, 0.0, 1.0, 1.0,
-        -1.0,  1.0, 0.0, 0.0, 1.0,
-         1.0, -1.0, 0.0, 1.0, 0.0
+        -1.0, -1.0, 0.0, 0.0, 0.0, // bottom left
+         1.0,  1.0, 0.0, 1.0, 1.0, // top right
+        -1.0,  1.0, 0.0, 0.0, 1.0, // top left
+         1.0, -1.0, 0.0, 1.0, 0.0  // bottom right
     ];
 
     let mut v_vbo: gl::types::GLuint = 0;
@@ -95,16 +98,35 @@ fn main() {
         gl::BindBuffer(gl::ARRAY_BUFFER, 0); // unbind the buffer
     }
 
-    //let mut texture:
+    // TODO: Handle error, we don't really even need a texture loading yet. just a image buffer that we will write to
+    let rust_image = res.load_image("textures/rust.png")
+        .unwrap()
+        .into_rgba();
+    
+    let mut texture: gl::types::GLuint = 0;
+    unsafe {
+        gl::GenTextures(1, &mut texture);
+ 
+        gl::BindTexture(gl::TEXTURE_2D, texture);
+        gl::TexImage2D(
+            gl::TEXTURE_2D,
+            0, 
+            gl::RGBA as i32, 
+            rust_image.width() as i32, 
+            rust_image.height() as i32, 
+            0,
+            gl::RGBA,
+            gl::UNSIGNED_BYTE,
+            rust_image.into_raw().as_ptr() as *const std::ffi::c_void
+        );
+        gl::GenerateMipmap(gl::TEXTURE_2D);
+    }
 
     let mut vao: gl::types::GLuint = 0;
     unsafe {
         gl::GenVertexArrays(1, &mut vao);
-    }
 
-    unsafe {
         gl::BindVertexArray(vao);
-        
         gl::BindBuffer(gl::ARRAY_BUFFER, v_vbo);
 
         let stride = (5 * std::mem::size_of::<f32>()) as gl::types::GLint;
@@ -152,6 +174,7 @@ fn main() {
         triangle_program.set_used();
 
         unsafe {
+            gl::BindTexture(gl::TEXTURE_2D, texture);
             gl::BindVertexArray(vao);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, i_vbo);
 
@@ -162,6 +185,7 @@ fn main() {
                 std::ptr::null()
             );
 
+            gl::BindTexture(gl::TEXTURE_2D, 0);
             gl::BindVertexArray(0);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
         }
