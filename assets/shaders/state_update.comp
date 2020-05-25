@@ -2,14 +2,43 @@
 layout(local_size_x = 1, local_size_y = 1) in;
 layout(rgba32f, binding = 0) uniform image2D img_output;
 
+// attempts to move a pixel, true if succeeds, false otherwise
+bool move_pixel(ivec2 vel, ivec2 pixel_coords, vec4 current_color, ivec2 image_size) {
+  ivec2 target_pixel = pixel_coords + vel;
+  vec4 target_color = imageLoad(img_output, target_pixel);  
+
+  if (0 <= target_pixel.y && target_pixel.y < image_size.y
+  && 0 <= target_pixel.x && target_pixel.x < image_size.x
+  && target_color.w == 0) 
+  {
+    imageStore(img_output, target_pixel, current_color);
+    return true;
+  } 
+
+  return false;
+}
+
+
+
+//void move_routine(ivec2 vel, ivec2 pixel_coords, vec4 current_color)
+
 void main() {
   ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+  // TODO: this is probably wasteful, maybe just use some uniform for this?
+  ivec2 image_size = imageSize(img_output);
     
   vec4 current_color = imageLoad(img_output, pixel_coords);  
-  if (current_color.a > 0.01) {
-      imageStore(img_output, pixel_coords, vec4(1, 0, 0, 1));
+  if (0.001 < current_color.a && current_color.a < 0.2) {
+    // TODO: state machine for this instead of if pyramid
+    bool moved = move_pixel(ivec2(0, -1), pixel_coords, current_color, image_size);
+    if (!moved) {
+      imageStore(img_output, pixel_coords, current_color);
       return;
+    }
   }
 
-  imageStore(img_output, pixel_coords, current_color);
+  float angle = atan(pixel_coords.y, pixel_coords.x);
+  imageStore(img_output, pixel_coords, vec4(sin(angle), cos(angle), sin(angle), 0));
 }
+
+

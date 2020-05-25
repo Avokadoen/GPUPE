@@ -197,6 +197,14 @@ fn main() {
         Program::from_shaders(&[shader]).unwrap()
     }; 
 
+    fn dispatch_compute(state_update_comp: &Program, tex_w: u32, tex_h: u32) {
+        state_update_comp.set_used();
+        unsafe {
+            gl::DispatchCompute(tex_w, tex_h, 1);
+            gl::MemoryBarrier(gl::SHADER_IMAGE_ACCESS_BARRIER_BIT);
+        }
+    }
+
     let mut event_pump = sdl.event_pump().unwrap();
     'main: loop {
         for event in event_pump.poll_iter() {
@@ -205,11 +213,7 @@ fn main() {
                 Event::Quit { .. } => break 'main,
                 Event::KeyDown { keycode, .. } => match keycode {
                     Some(Keycode::D) => {
-                        state_update_comp.set_used();
-                        unsafe {
-                            gl::DispatchCompute(tex_w, tex_h, 1);
-                            gl::MemoryBarrier(gl::SHADER_IMAGE_ACCESS_BARRIER_BIT);
-                        }
+                        dispatch_compute(&state_update_comp, tex_w, tex_h);
                     },
                     _ => println!("Keydown: {:?}", keycode)
                 },
@@ -217,6 +221,8 @@ fn main() {
                 _ => {}
             }
         }
+
+        dispatch_compute(&state_update_comp, tex_w, tex_h);
 
         unsafe {
             gl::Clear(gl::COLOR_BUFFER_BIT);
