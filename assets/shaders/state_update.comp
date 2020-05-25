@@ -5,9 +5,9 @@ layout(rgba32f, binding = 0) uniform image2D img_output;
 void main() {
   ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
     
-  vec4 current_color = imageLoad(img_output, pixel_coords + ivec2(0, 1));  
-  if (current_color.rgb == vec3(40, 60, 100)) {
-      imageStore(img_output, pixel_coords, current_color);
+  vec4 current_color = imageLoad(img_output, pixel_coords);  
+  if (current_color.a > 0.01) {
+      imageStore(img_output, pixel_coords, vec4(1, 0, 0, 1));
       return;
   }
 

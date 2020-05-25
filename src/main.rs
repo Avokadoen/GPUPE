@@ -101,32 +101,15 @@ fn main() {
         gl::BindBuffer(gl::ARRAY_BUFFER, 0); // unbind the buffer
     }
 
-    
-    // let mut texture: gl::types::GLuint = 0;
-    // unsafe {
-    //     gl::GenTextures(1, &mut texture);
- 
-    //     gl::BindTexture(gl::TEXTURE_2D, texture);
-    //     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
-    //     gl::TexImage2D(
-    //         gl::TEXTURE_2D,
-    //         0, 
-    //         gl::RGBA32F as i32, 
-    //         rust_image.width() as i32, 
-    //         rust_image.height() as i32, 
-    //         0,
-    //         gl::RGBA,
-    //         gl::UNSIGNED_BYTE,
-    //         rust_image.into_raw().as_ptr() as *const std::ffi::c_void
-    //     );
-    //     gl::GenerateMipmap(gl::TEXTURE_2D);
-    // }
-
-    // TODO: this is just test code to make compute shader work
+    // TODO: this is just test code to make compute shader work, we need abstractions to make this prettier and more generic
     // dimensions of the image
     let rust_image = res.load_image("textures/water_test.png")
         .unwrap()
         .into_rgba();
+    
+    // TODO: avoid copy
+    let rust_image = image::imageops::flip_vertical(&rust_image);
+
     let (tex_w, tex_h) = (window_x, window_y);
     let mut tex_output: gl::types::GLuint = 0;
     unsafe { 
@@ -217,10 +200,11 @@ fn main() {
     let mut event_pump = sdl.event_pump().unwrap();
     'main: loop {
         for event in event_pump.poll_iter() {
+            use sdl2::keyboard::Keycode;
             match event {
                 Event::Quit { .. } => break 'main,
                 Event::KeyDown { keycode, .. } => match keycode {
-                    Some(D) => {
+                    Some(Keycode::D) => {
                         state_update_comp.set_used();
                         unsafe {
                             gl::DispatchCompute(tex_w, tex_h, 1);
