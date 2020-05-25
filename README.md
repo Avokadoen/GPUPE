@@ -14,7 +14,9 @@ The draft can be found [here TODO](todo).
 
 Using compute shader to update a texture
 
-![compute shader test](https://i.imgur.com/ZeeIWbb.gif)
+[compute shader test](https://i.imgur.com/ZeeIWbb.gif)
+
+![compute shader test2](https://i.imgur.com/9YsamC4.gif)
 
 # Contribution
 
