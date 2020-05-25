@@ -215,12 +215,20 @@ fn main() {
     }; 
 
     let mut event_pump = sdl.event_pump().unwrap();
-    let mut dispatch_count = 0;
     'main: loop {
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit { .. } => break 'main,
-                Event::KeyDown { keycode, .. } => println!("Keydown: {:?}", keycode),
+                Event::KeyDown { keycode, .. } => match keycode {
+                    Some(D) => {
+                        state_update_comp.set_used();
+                        unsafe {
+                            gl::DispatchCompute(tex_w, tex_h, 1);
+                            gl::MemoryBarrier(gl::SHADER_IMAGE_ACCESS_BARRIER_BIT);
+                        }
+                    },
+                    _ => println!("Keydown: {:?}", keycode)
+                },
                 Event::KeyUp { keycode, .. } => println!("Keyup: {:?}", keycode),
                 _ => {}
             }
@@ -228,15 +236,6 @@ fn main() {
 
         unsafe {
             gl::Clear(gl::COLOR_BUFFER_BIT);
-        }
-        
-        if dispatch_count < 100 {
-            state_update_comp.set_used();
-            unsafe {
-                gl::DispatchCompute(tex_w, tex_h, 1);
-                gl::MemoryBarrier(gl::SHADER_IMAGE_ACCESS_BARRIER_BIT);
-            }
-            dispatch_count += 1;
         }
 
         triangle_program.set_used();
