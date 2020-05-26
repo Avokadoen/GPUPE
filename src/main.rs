@@ -11,8 +11,9 @@ mod resources;
 use resources::Resources;
 use renderer::{
     program::Program, 
-    shader::Shader
 };
+
+// TODO: currently lots of opengl stuff. Move all of it into renderer module
 
 fn main() {
     let res = Resources::from_relative_path(Path::new("assets")).unwrap();
@@ -111,11 +112,11 @@ fn main() {
     let rust_image = image::imageops::flip_vertical(&rust_image);
 
     let (tex_w, tex_h) = (window_x, window_y);
-    let mut tex_output: gl::types::GLuint = 0;
+    let mut compute_tex_output: gl::types::GLuint = 0;
     unsafe { 
-        gl::GenTextures(1, &mut tex_output);
+        gl::GenTextures(1, &mut compute_tex_output);
         gl::ActiveTexture(gl::TEXTURE0);
-        gl::BindTexture(gl::TEXTURE_2D, tex_output);
+        gl::BindTexture(gl::TEXTURE_2D, compute_tex_output);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
@@ -131,9 +132,9 @@ fn main() {
             gl::UNSIGNED_BYTE, 
             rust_image.into_raw().as_ptr() as *const std::ffi::c_void
         );
-        gl::BindImageTexture(0, tex_output, 0, gl::FALSE, 0, gl::READ_WRITE, gl::RGBA32F);
+        gl::BindImageTexture(0, compute_tex_output, 0, gl::FALSE, 0, gl::READ_WRITE, gl::RGBA32F);
     }
-    let tex_output = tex_output;
+    let tex_output = compute_tex_output;
 
     let mut vao: gl::types::GLuint = 0;
     unsafe {
@@ -145,12 +146,12 @@ fn main() {
         let stride = (5 * std::mem::size_of::<f32>()) as gl::types::GLint;
         gl::EnableVertexAttribArray(0); // this is "layout (location = 0)" in vertex shader
         gl::VertexAttribPointer(
-            0, // index of the generic vertex attribute ("layout (location = 0)")
-            3, // the number of components per generic vertex attribute
-            gl::FLOAT, // data type
-            gl::FALSE, // normalized (int-to-float conversion)
-            stride, // stride (byte offset between consecutive attributes)
-            std::ptr::null() // offset of the first component
+            0,                  // index of the generic vertex attribute ("layout (location = 0)")
+            3,                  // the number of components per generic vertex attribute
+            gl::FLOAT,          // data type
+            gl::FALSE,          // normalized (int-to-float conversion)
+            stride,             // stride (byte offset between consecutive attributes)
+            std::ptr::null()    // offset of the first component
         );
 
         gl::EnableVertexAttribArray(1); 
@@ -175,7 +176,7 @@ fn main() {
         gl::GetIntegeri_v(gl::MAX_COMPUTE_WORK_GROUP_COUNT, 1, &mut work_group_count_limit[1]);
         gl::GetIntegeri_v(gl::MAX_COMPUTE_WORK_GROUP_COUNT, 2, &mut work_group_count_limit[2]);
     }
-    let work_group_count_limit = work_group_count_limit;
+    let _work_group_count_limit = work_group_count_limit;
 
     // Retrieve work group size limit
     let mut work_group_size_limit = [0, 0, 0];
@@ -184,13 +185,13 @@ fn main() {
         gl::GetIntegeri_v(gl::MAX_COMPUTE_WORK_GROUP_SIZE, 1, &mut work_group_size_limit[1]);
         gl::GetIntegeri_v(gl::MAX_COMPUTE_WORK_GROUP_SIZE, 2, &mut work_group_size_limit[2]);
     }
-    let work_group_size_limit = work_group_size_limit;
+    let _work_group_size_limit = work_group_size_limit;
 
     let mut work_group_invocation_limit = 0;
     unsafe {
         gl::GetIntegerv(gl::MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &mut work_group_invocation_limit);
     }
-    let work_group_invocation_limit = work_group_invocation_limit;
+    let _work_group_invocation_limit = work_group_invocation_limit;
 
     let state_update_comp = {
         let shader = renderer::shader::Shader::from_resources(&res, "shaders/state_update.comp").unwrap();
@@ -205,6 +206,41 @@ fn main() {
         }
     }
 
+    // TODO: framebuffer module
+    let mut framebuffer: gl::types::GLuint = 0;
+    unsafe {
+        gl::GenFramebuffers(1, &mut framebuffer);
+        gl::BindFramebuffer(gl::FRAMEBUFFER, framebuffer);
+    }
+    let framebuffer = framebuffer;
+    
+    {
+        let buffer_status = unsafe { gl::CheckFramebufferStatus(gl::FRAMEBUFFER) };
+        if buffer_status != gl::FRAMEBUFFER_COMPLETE {
+            panic!("framebuffer was in a unexpected state {}", buffer_status); // TODO handle better
+        }
+    }
+
+    let mut framebuffer_tex: gl::types::GLuint = 0;
+    unsafe { 
+        gl::GenTextures(1, &mut framebuffer_tex);
+        gl::BindTexture(gl::TEXTURE_2D, framebuffer_tex);
+        
+        gl::TexImage2D(
+            gl::TEXTURE_2D,
+            0,
+            gl::RGBA as i32,
+            window_x as i32,
+            window_y as i32,
+            0,
+            gl::RGBA,
+            gl::UNSIGNED_BYTE,
+            std::ptr::null()
+        );
+    }
+
+
+    // TODO: lock screen from being stretched
     let mut event_pump = sdl.event_pump().unwrap();
     'main: loop {
         for event in event_pump.poll_iter() {
@@ -245,9 +281,11 @@ fn main() {
             gl::BindTexture(gl::TEXTURE_2D, 0);
             gl::BindVertexArray(0);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
+            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
         }
 
         window.gl_swap_window();
     }
-
+    // glDeleteFramebuffers(1, &fbo);  
+    // texture delete ...
 }

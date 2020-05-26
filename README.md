@@ -23,8 +23,10 @@ Using compute shader to update a texture
 The actual implementation will accept contribution. However, this prototype will not as it serves as a learning experience for me
 
 # Sources
+Thanks Nercury for a great blog about opengl in rust!
+http://nercury.github.io/rust/opengl/tutorial/2018/02/08/opengl-in-rust-from-scratch-00-setup.html
 
-Using gl and sdl bindings for rust: https://github.com/Nercury/rust-and-opengl-lessons
+Using gl and sdl bindings for rust: https://github.com/Nercury/rust-and-opengl-lessons 
 
 Opengl textures: https://learnopengl.com/Getting-started/Textures
 

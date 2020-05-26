@@ -30,7 +30,7 @@ void main() {
   vec4 current_color = imageLoad(img_output, pixel_coords);  
   if (0.001 < current_color.a && current_color.a < 0.2) {
     // TODO: state machine for this instead of if pyramid
-    bool moved = move_pixel(ivec2(0, -1), pixel_coords, current_color, image_size);
+    bool moved = move_pixel(ivec2(-1, 0), pixel_coords, current_color, image_size);
     if (!moved) {
       imageStore(img_output, pixel_coords, current_color);
       return;
