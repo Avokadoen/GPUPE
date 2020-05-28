@@ -2,43 +2,72 @@
 layout(local_size_x = 1, local_size_y = 1) in;
 layout(rgba32f, binding = 0) uniform image2D img_output;
 
-// attempts to move a pixel, true if succeeds, false otherwise
-bool move_pixel(ivec2 vel, ivec2 pixel_coords, vec4 current_color, ivec2 image_size) {
-  ivec2 target_pixel = pixel_coords + vel;
-  vec4 target_color = imageLoad(img_output, target_pixel);  
+// Forward declarations 
+bool attempt_move_pixel(ivec2 current, ivec2 target, ivec2 center);
+void move_pixel(ivec2 current, ivec2 target, vec4 current_color);
+bool pixel_in_chunk_fragment(ivec2 pixel, ivec2 center);
+bool pixel_in_chunk(ivec2 pixel);
 
-  if (0 <= target_pixel.y && target_pixel.y < image_size.y
-  && 0 <= target_pixel.x && target_pixel.x < image_size.x
-  && target_color.w == 0) 
-  {
-    imageStore(img_output, target_pixel, current_color);
+// NOTE: CHUNK SIZE
+
+void main() {
+  ivec2 center = ivec2(gl_GlobalInvocationID.x * 8, gl_GlobalInvocationID.y * 8);
+
+  for (uint x = 0; x < 8; x++) {
+    for (uint y = 0; y < 8; y++) {
+      ivec2 pixel_coords = center + ivec2(x, y);
+      
+      // if (!pixel_in_chunk(pixel_coords)) {
+      //   return;
+      // }
+
+      if(!attempt_move_pixel(pixel_coords, pixel_coords + ivec2(0, -1), center)) {
+        return;
+      }
+
+      vec4 current_color = imageLoad(img_output, pixel_coords);  
+      if (0.001 >= current_color.a) {
+        float angle = atan(pixel_coords.y, pixel_coords.x);
+        imageStore(img_output, pixel_coords, vec4(sin(angle), cos(angle), sin(angle), 0));
+      }
+    }
+  }
+}
+
+bool attempt_move_pixel(ivec2 current, ivec2 target, ivec2 center) {
+  vec4 current_color = imageLoad(img_output, current);  
+  if (0.001 < current_color.a && current_color.a < 0.2) {
+    ivec2 target = current + ivec2(0, -1);
+    move_pixel(current, target, vec4(1, 0, 0, 1));
+    
+    // if (!pixel_in_chunk(target)) {
+    //   return false;
+    // }
+
+    // if (!pixel_in_chunk_fragment(target, center)) {
+    //   return false;
+    // }
+
+    move_pixel(current, target, vec4(1, 0, 0, 1));
     return true;
-  } 
-
+  }
   return false;
 }
 
-
-
-//void move_routine(ivec2 vel, ivec2 pixel_coords, vec4 current_color)
-
-void main() {
-  ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
-  // TODO: this is probably wasteful, maybe just use some uniform for this?
-  ivec2 image_size = imageSize(img_output);
-    
-  vec4 current_color = imageLoad(img_output, pixel_coords);  
-  if (0.001 < current_color.a && current_color.a < 0.2) {
-    // TODO: state machine for this instead of if pyramid
-    bool moved = move_pixel(ivec2(-1, 0), pixel_coords, current_color, image_size);
-    if (!moved) {
-      imageStore(img_output, pixel_coords, current_color);
-      return;
-    }
-  }
-
-  float angle = atan(pixel_coords.y, pixel_coords.x);
-  imageStore(img_output, pixel_coords, vec4(sin(angle), cos(angle), sin(angle), 0));
+bool pixel_in_chunk_fragment(ivec2 pixel, ivec2 center) {
+  return  pixel.x >= center.x && pixel.x < center.x + 8 &&
+          pixel.y >= center.y && pixel.y < 8;
 }
+
+bool pixel_in_chunk(ivec2 pixel) {
+  return  pixel.x >= 0 && pixel.y >= 0 && pixel.x < 512 && pixel.y < 512;
+}
+
+/// attempts to move a pixel, true if succeeds, false otherwise
+void move_pixel(ivec2 current, ivec2 target, vec4 current_color) {
+  vec4 target_color = imageLoad(img_output, target);
+  imageStore(img_output, target, current_color);
+}
+
 
 

@@ -30,6 +30,7 @@ fn main() {
         gl_attr.set_context_version(4, 5);
     }
 
+    // NOTE: CHUNK SIZE
     let window_x: u32 = 512;
     let window_y: u32 = 512;
 
@@ -111,22 +112,21 @@ fn main() {
     // TODO: avoid copy
     let rust_image = image::imageops::flip_vertical(&rust_image);
 
-    let (tex_w, tex_h) = (window_x, window_y);
     let mut compute_tex_output: gl::types::GLuint = 0;
     unsafe { 
         gl::GenTextures(1, &mut compute_tex_output);
         gl::ActiveTexture(gl::TEXTURE0);
         gl::BindTexture(gl::TEXTURE_2D, compute_tex_output);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_BORDER as i32);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as i32);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
         gl::TexImage2D(
             gl::TEXTURE_2D, 
             0, 
             gl::RGBA32F as i32, 
-            rust_image.width() as i32, 
-            rust_image.height() as i32, 
+            rust_image.width() as i32,  // NOTE: CHUNK SIZE
+            rust_image.height() as i32,  // NOTE: CHUNK SIZE
             0, 
             gl::RGBA, 
             gl::UNSIGNED_BYTE, 
@@ -198,47 +198,16 @@ fn main() {
         Program::from_shaders(&[shader]).unwrap()
     }; 
 
-    fn dispatch_compute(state_update_comp: &Program, tex_w: u32, tex_h: u32) {
+    fn dispatch_compute(state_update_comp: &Program) {
         state_update_comp.set_used();
         unsafe {
-            gl::DispatchCompute(tex_w, tex_h, 1);
+            // NOTE: CHUNK SIZE
+            // TODO: this should not be hardcoded. Should be handled by some compute state abstraction
+            // 512 / 8 = 64
+            gl::DispatchCompute(64, 64, 1);
             gl::MemoryBarrier(gl::SHADER_IMAGE_ACCESS_BARRIER_BIT);
         }
     }
-
-    // TODO: framebuffer module
-    let mut framebuffer: gl::types::GLuint = 0;
-    unsafe {
-        gl::GenFramebuffers(1, &mut framebuffer);
-        gl::BindFramebuffer(gl::FRAMEBUFFER, framebuffer);
-    }
-    let framebuffer = framebuffer;
-    
-    {
-        let buffer_status = unsafe { gl::CheckFramebufferStatus(gl::FRAMEBUFFER) };
-        if buffer_status != gl::FRAMEBUFFER_COMPLETE {
-            panic!("framebuffer was in a unexpected state {}", buffer_status); // TODO handle better
-        }
-    }
-
-    let mut framebuffer_tex: gl::types::GLuint = 0;
-    unsafe { 
-        gl::GenTextures(1, &mut framebuffer_tex);
-        gl::BindTexture(gl::TEXTURE_2D, framebuffer_tex);
-        
-        gl::TexImage2D(
-            gl::TEXTURE_2D,
-            0,
-            gl::RGBA as i32,
-            window_x as i32,
-            window_y as i32,
-            0,
-            gl::RGBA,
-            gl::UNSIGNED_BYTE,
-            std::ptr::null()
-        );
-    }
-
 
     // TODO: lock screen from being stretched
     let mut event_pump = sdl.event_pump().unwrap();
@@ -249,7 +218,7 @@ fn main() {
                 Event::Quit { .. } => break 'main,
                 Event::KeyDown { keycode, .. } => match keycode {
                     Some(Keycode::D) => {
-                        dispatch_compute(&state_update_comp, tex_w, tex_h);
+                        dispatch_compute(&state_update_comp);
                     },
                     _ => println!("Keydown: {:?}", keycode)
                 },
@@ -258,7 +227,7 @@ fn main() {
             }
         }
 
-        dispatch_compute(&state_update_comp, tex_w, tex_h);
+        dispatch_compute(&state_update_comp);
 
         unsafe {
             gl::Clear(gl::COLOR_BUFFER_BIT);
@@ -281,7 +250,6 @@ fn main() {
             gl::BindTexture(gl::TEXTURE_2D, 0);
             gl::BindVertexArray(0);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
-            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
         }
 
         window.gl_swap_window();
