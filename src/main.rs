@@ -220,9 +220,14 @@ fn main() {
                     Some(Keycode::D) => {
                         dispatch_compute(&state_update_comp);
                     },
+                    Some(Keycode::Num0) => {
+                        state_update_comp.set_i32("pass_type", 0).unwrap();
+                    },
                     Some(Keycode::Num1) => {
-                        state_update_comp.set_i32(b"pass_type", 1);
-                        dispatch_compute(&state_update_comp);
+                        state_update_comp.set_i32("pass_type", 1).unwrap();
+                    },
+                    Some(Keycode::Num2) => {
+                        state_update_comp.set_i32("pass_type", 2).unwrap();
                     },
                     _ => println!("Keydown: {:?}", keycode)
                 },

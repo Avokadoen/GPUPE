@@ -3,7 +3,6 @@ layout(local_size_x = 1, local_size_y = 1) in;
 layout(rgba32f, binding = 0) uniform image2D img_output;
 
 uniform int pass_type         = 0;
-
 const int FRAGMENT_PASS_TYPE  = 0;
 const int HORIZONTAL_PASS     = 1;
 const int VERTICAL_PASS       = 2;

@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::ffi::{CStr, CString};
 
 use gl::types::{
     GLuint,
@@ -23,12 +22,17 @@ impl Program {
         }
     }
 
-    pub fn set_i32(&mut self, name: &CStr, value: i32) {
+    pub fn set_i32(&mut self, name: &str, value: i32) -> Result<(), String> {
         if self.register_uniform(name) {
             unsafe {
-                gl::Uniform1i(self.uniforms[name], value);
+                println!("{}, {}", self.uniforms[name], value);
+                gl::ProgramUniform1i(self.id, self.uniforms[name], value);
             }
+            return Ok(());
         }
+
+        // TODO: proper error handling
+        return Err(format!("failed to find specified i32 {}", name));
     }
 
     /// creates a program out of a folder path that contains both a fragment shader and vertex shader
@@ -88,23 +92,18 @@ impl Program {
         // TODO: waste creating a vec every time just to have variables. Redesign this
         Ok(Program { id: program_id, uniforms: HashMap::new() })
     }
-
-    // rename
+ 
+    // TODO: rename as it also checks if it exist
     fn register_uniform(&mut self, name: &str) -> bool {
         if !self.uniforms.contains_key(name) {
             let uni_location = unsafe {
-                // TODO: this section should be rewritten, iæm just a noob with String <-> Cstring
-                use std::ffi::CString;
-                let name_raw = match CString::new(name) {
-                    Ok(str) => str.to_bytes_with_nul().as_ptr(),
-                    Err(err) => panic!(err) // TODO: we don't need to panic here
-                };
-
-                gl::GetUniformLocation(self.id, name_raw as *const i8)
+                use std::ffi::CStr;
+                let c_name = CStr::from_ptr(format!("{}\0", name).as_ptr() as *const i8);
+                gl::GetUniformLocation(self.id, c_name.as_ptr())
             };
 
             if uni_location != -1 {
-                &self.uniforms.insert(name.to_string(), uni_location);
+                &self.uniforms.insert(String::from(name), uni_location);
             } else {
                 return false;
             }
