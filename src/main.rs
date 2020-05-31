@@ -193,7 +193,7 @@ fn main() {
     }
     let _work_group_invocation_limit = work_group_invocation_limit;
 
-    let state_update_comp = {
+    let mut state_update_comp = {
         let shader = renderer::shader::Shader::from_resources(&res, "shaders/state_update.comp").unwrap();
         Program::from_shaders(&[shader]).unwrap()
     }; 
@@ -220,6 +220,10 @@ fn main() {
                     Some(Keycode::D) => {
                         dispatch_compute(&state_update_comp);
                     },
+                    Some(Keycode::Num1) => {
+                        state_update_comp.set_i32("pass_type", 1);
+                        dispatch_compute(&state_update_comp);
+                    },
                     _ => println!("Keydown: {:?}", keycode)
                 },
                 Event::KeyUp { keycode, .. } => println!("Keyup: {:?}", keycode),
@@ -227,7 +231,7 @@ fn main() {
             }
         }
 
-        dispatch_compute(&state_update_comp);
+        //dispatch_compute(&state_update_comp);
 
         unsafe {
             gl::Clear(gl::COLOR_BUFFER_BIT);

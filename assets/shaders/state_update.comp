@@ -2,39 +2,75 @@
 layout(local_size_x = 1, local_size_y = 1) in;
 layout(rgba32f, binding = 0) uniform image2D img_output;
 
+uniform int pass_type         = 0;
+
+const int FRAGMENT_PASS_TYPE  = 0;
+const int HORIZONTAL_PASS     = 1;
+const int VERTICAL_PASS       = 2;
+
+// compute pass type operation
+void fragment_pass();
+void horizontal_pass();
+void vertical_pass();
+
+
+// pixel operation funtions
 bool attempt_move_pixel(ivec2 current, ivec2 target, ivec2 left_bottom_corner);
 void move_pixel(ivec2 current, ivec2 target, vec4 current_color);
 
-// pixel functions
+// pixel assert functions
 bool pixel_taken(ivec2 pixel);
 bool pixel_in_chunk(ivec2 pixel, ivec2 left_bottom_corner);
 bool pixel_in_texture(ivec2 pixel);
 
-// NOTE: CHUNK SIZE
-
 void main() {
+  switch (pass_type) {
+    case FRAGMENT_PASS_TYPE:
+      fragment_pass();
+      break;
+    case HORIZONTAL_PASS:
+      horizontal_pass();
+      break;
+    case VERTICAL_PASS:
+      vertical_pass();
+      break;
+    default:
+      break;
+  }
+}
+
+void fragment_pass() {
   ivec2 left_bottom_corner = ivec2(gl_GlobalInvocationID.x * 8, gl_GlobalInvocationID.y * 8);
 
   for (uint x = 0; x < 8; x++) {
     for (uint y = 0; y < 8; y++) {
       ivec2 pixel_coords = left_bottom_corner + ivec2(x, y);
-
       vec4 current_color = imageLoad(img_output, pixel_coords); 
+
       if (current_color.b > 0) { // TODO: logic to select only water pixels
-        
         ivec2 under_coords = pixel_coords + ivec2(0, -1);
-        if (pixel_in_texture(under_coords) && !pixel_taken(under_coords)) {
+        
+        if (pixel_in_texture(under_coords) && pixel_in_chunk(under_coords, left_bottom_corner) && !pixel_taken(under_coords)) {
           imageStore(img_output, under_coords, current_color);
         } else {
           imageStore(img_output, pixel_coords, current_color);
           return;
         }
-
       }
       
       imageStore(img_output, pixel_coords, vec4(0, 0, 0, 0));
     }
   }
+}
+
+void horizontal_pass() {
+  ivec2 left_bottom_corner = ivec2(gl_GlobalInvocationID.x * 8, gl_GlobalInvocationID.y * 8);
+   imageStore(img_output, left_bottom_corner, vec4(1, 0, 0, 1));
+}
+
+void vertical_pass() {
+  ivec2 left_bottom_corner = ivec2(gl_GlobalInvocationID.x * 8, gl_GlobalInvocationID.y * 8);
+  imageStore(img_output, left_bottom_corner, vec4(0, 1, 0, 1));
 }
 
 bool pixel_taken(ivec2 pixel) {
@@ -43,7 +79,7 @@ bool pixel_taken(ivec2 pixel) {
 
 bool pixel_in_chunk(ivec2 pixel, ivec2 left_bottom_corner) {
   return  pixel.x >= left_bottom_corner.x && pixel.x < left_bottom_corner.x + 8 &&
-          pixel.y >= left_bottom_corner.y && pixel.y < left_bottom_corner.x + 8;
+          pixel.y >= left_bottom_corner.y && pixel.y < left_bottom_corner.y + 8;
 }
 
 bool pixel_in_texture(ivec2 pixel) {

@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::ffi::{CStr, CString};
+
 use gl::types::{
     GLuint,
     GLint,
@@ -6,11 +9,10 @@ use gl::types::{
 
 use super::shader::Shader;
 use crate::Resources;
-
-
 // TODO: rename?
 pub struct Program {
     id: GLuint,
+    uniforms: HashMap<String, GLint> 
 }
 
 impl Program {
@@ -18,6 +20,15 @@ impl Program {
     pub fn set_used(&self) {
         unsafe {
             gl::UseProgram(self.id);
+        }
+    }
+
+    // TODO: interface should take cstr
+    pub fn set_i32(&mut self, name: &Cstr, value: i32) {
+        if self.register_uniform(name) {
+            unsafe {
+                gl::Uniform1i(self.uniforms[name], value);
+            }
         }
     }
 
@@ -75,7 +86,32 @@ impl Program {
             unsafe { gl::DetachShader(program_id, shader.id()); }
         }
 
-        Ok(Program { id: program_id })
+        // TODO: waste creating a vec every time just to have variables. Redesign this
+        Ok(Program { id: program_id, uniforms: HashMap::new() })
+    }
+
+    // rename
+    fn register_uniform(&mut self, name: &str) -> bool {
+        if !self.uniforms.contains_key(name) {
+            let uni_location = unsafe {
+                // TODO: this section should be rewritten, iæm just a noob with String <-> Cstring
+                use std::ffi::CString;
+                let name_raw = match CString::new(name) {
+                    Ok(str) => str.to_bytes_with_nul().as_ptr(),
+                    Err(err) => panic!(err) // TODO: we don't need to panic here
+                };
+
+                gl::GetUniformLocation(self.id, name_raw as *const i8)
+            };
+
+            if uni_location != -1 {
+                &self.uniforms.insert(name.to_string(), uni_location);
+            } else {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
 
