@@ -23,8 +23,7 @@ impl Program {
         }
     }
 
-    // TODO: interface should take cstr
-    pub fn set_i32(&mut self, name: &Cstr, value: i32) {
+    pub fn set_i32(&mut self, name: &CStr, value: i32) {
         if self.register_uniform(name) {
             unsafe {
                 gl::Uniform1i(self.uniforms[name], value);

@@ -13,12 +13,8 @@ void fragment_pass();
 void horizontal_pass();
 void vertical_pass();
 
-
-// pixel operation funtions
-bool attempt_move_pixel(ivec2 current, ivec2 target, ivec2 left_bottom_corner);
+// pixel functions
 void move_pixel(ivec2 current, ivec2 target, vec4 current_color);
-
-// pixel assert functions
 bool pixel_taken(ivec2 pixel);
 bool pixel_in_chunk(ivec2 pixel, ivec2 left_bottom_corner);
 bool pixel_in_texture(ivec2 pixel);

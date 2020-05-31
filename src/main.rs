@@ -221,7 +221,7 @@ fn main() {
                         dispatch_compute(&state_update_comp);
                     },
                     Some(Keycode::Num1) => {
-                        state_update_comp.set_i32("pass_type", 1);
+                        state_update_comp.set_i32(b"pass_type", 1);
                         dispatch_compute(&state_update_comp);
                     },
                     _ => println!("Keydown: {:?}", keycode)
