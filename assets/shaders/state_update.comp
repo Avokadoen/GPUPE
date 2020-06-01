@@ -19,14 +19,21 @@ void fragment_pass();
 void vertical_pass();
 void horizontal_pass();
 void cleanup_pass();
-void update(ivec2 left_bottom_corner, ivec2 offset, ivec2 velocity);
+void update(ivec2 left_bottom_corner, ivec2 offset);
 
+bool valid_change_for_pass(ivec2 velocity);
+
+const int ATTEMPT_SUCCEEDS = 0;
+const int ATTEMPT_END = -1; // This mean the change was denied as change is outside of our Jurisdiction
+const int ATTEMPT_PIXEL_BLOCKED = -2; // This means we can try in other directions if we want
 // pixel functions
-void move_pixel(ivec2 current, ivec2 target, vec4 current_color);
+int attempt_move_pixel(ivec2 pixel, ivec2 chunk_start, ivec2 velocity, vec4 current_color);
+
 void write_pixel(ivec2 pixel, vec4 color);
 bool pixel_taken(ivec2 pixel);
 bool pixel_in_chunk(ivec2 pixel, ivec2 left_bottom_corner);
 bool pixel_in_texture(ivec2 pixel);
+bool pixel_already_set(ivec2 pixel);
 
 void main() {
   switch (pass_type) {
@@ -47,61 +54,20 @@ void main() {
   }
 }
 
-// TODO: using one update function for every pass is probably problematic
-void update(ivec2 chunk_start, ivec2 offset, ivec2 velocity) {
-  ivec2 pixel_coords  = chunk_start + offset;
-  
-  { // If image already set this frame
-    vec4 is_pixel_set = imageLoad(update_map, pixel_coords);
-    if (is_pixel_set.r >= 0.999) {
-      return;
-    }
-  }
-
-  vec4 current_color  = imageLoad(img_output, pixel_coords);
-
-  if (pass_type == VERTICAL_PASS && velocity.x != 0 ) {
-    return;
-  }
-  
-  if (pass_type == HORIZONTAL_PASS && velocity.y != 0) {
-    return;
-  }
-
-  if (current_color.b > 0) { // TODO: logic to select only water pixels
-    ivec2 under_coords = pixel_coords + velocity;
-    // if we are in the intersection between a chunk we should not care about chunks in a non fragment passs
-    bool chunk_border_accept = (pass_type != CHUNK_PASS) ? true : pixel_in_chunk(under_coords, chunk_start);  
-  
-    if (pixel_in_texture(under_coords) && chunk_border_accept && !pixel_taken(under_coords)) {
-      write_pixel(under_coords, current_color);
-    } else {
-      write_pixel(pixel_coords, current_color);
-      return;
-    }
-  }
-  write_pixel(pixel_coords, vec4(0, 0, 0, 0));
-}
-
 void fragment_pass() {
-  // TODO: this migth be common among all passes
   ivec2 chunk_start = ivec2(gl_GlobalInvocationID.x * 8, gl_GlobalInvocationID.y * 8);
-
   for (uint x = 0; x < 8; x++) {
     for (uint y = 0; y < 8; y++) {
-      ivec2 velocity = ivec2(0, -1);
-      update(chunk_start, ivec2(x, y), velocity);
+      update(chunk_start, ivec2(x, y));
     }
   }
 }
 
 void vertical_pass() {
   ivec2 chunk_start = ivec2(gl_GlobalInvocationID.x * 8, (gl_GlobalInvocationID.y * 8) - 1);
-  
   for (uint x = 0; x < 8; x++) {
     for (uint y = 0; y < 2; y++) {
-      ivec2 velocity = ivec2(0, -1);
-      update(chunk_start, ivec2(x, y), velocity);
+      update(chunk_start, ivec2(x, y));
     }
   }
 }
@@ -110,17 +76,79 @@ void horizontal_pass() {
   ivec2 chunk_start = ivec2((gl_GlobalInvocationID.x * 8) - 1, gl_GlobalInvocationID.y * 8);
    for (uint x = 0; x < 2; x++) {
     for (uint y = 0; y < 8; y++) {
-      ivec2 velocity = ivec2(0, -1);
-      update(chunk_start, ivec2(x, y), velocity);
+      update(chunk_start, ivec2(x, y));
     }
   }
 }
 
+/// we dispatch at this stage with 512 x 512 to make this cleanup as fast as possible
 void cleanup_pass() {
   ivec2 pixel = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
   imageStore(update_map, pixel, vec4(0, 0, 0, 0));
 }
 
+// TODO: using one update function for every pass is probably problematic
+void update(ivec2 chunk_start, ivec2 offset) {
+  ivec2 pixel_coords = chunk_start + offset;
+  
+  if (pixel_already_set(pixel_coords)) {
+    return;
+  }
+
+  vec4 current_color = imageLoad(img_output, pixel_coords);
+  int attempt_result = ATTEMPT_SUCCEEDS;
+  if (current_color.b > 0) { // TODO: logic to select only water pixels
+    attempt_result = ATTEMPT_PIXEL_BLOCKED;
+    ivec2 velocity = ivec2(0, -1);
+    for (int i = 0; i < 3 && attempt_result == ATTEMPT_PIXEL_BLOCKED; i++) {
+      attempt_result = attempt_move_pixel(pixel_coords, chunk_start, velocity, current_color);
+      
+      if (attempt_result == ATTEMPT_PIXEL_BLOCKED) {
+        if (i == 0) {
+          velocity = ivec2(-1, 0);
+        } else if (i == 1) {
+          velocity = ivec2(1, 0);
+        }
+      }
+    }
+  }
+  
+  if (attempt_result == ATTEMPT_SUCCEEDS) {
+    write_pixel(pixel_coords, vec4(0, 0, 0, 0));
+  }
+}
+
+bool valid_change_for_pass(ivec2 velocity) {
+  if (pass_type == VERTICAL_PASS && velocity.x != 0 ) {
+    return false;
+  }
+  
+  if (pass_type == HORIZONTAL_PASS && velocity.y != 0) {
+    return false;
+  }
+
+  return true;
+}
+
+int attempt_move_pixel(ivec2 pixel, ivec2 chunk_start, ivec2 velocity, vec4 current_color) {
+    if (!valid_change_for_pass(velocity)) {
+      return ATTEMPT_END;
+    }
+
+    ivec2 next_coords = pixel + velocity;
+    // if we are in the intersection between a chunk we should not care about chunks in a non fragment passs
+    bool chunk_border_accept = (pass_type != CHUNK_PASS) ? true : pixel_in_chunk(next_coords, chunk_start);  
+    if (!chunk_border_accept) {
+      return ATTEMPT_END;
+    }
+
+    if (pixel_in_texture(next_coords) && !pixel_taken(next_coords)) {
+      write_pixel(next_coords, current_color);
+      return ATTEMPT_SUCCEEDS;
+    } 
+
+    return ATTEMPT_PIXEL_BLOCKED;
+}
 
 bool pixel_taken(ivec2 pixel) {
   return imageLoad(img_output, pixel).b > 0; // TODO: logic to check if air pixel
@@ -137,16 +165,15 @@ bool pixel_in_texture(ivec2 pixel) {
   return  pixel.x >= 0 && pixel.y >= 0 && pixel.x < 512 && pixel.y < 512;
 }
 
-/// attempts to move a pixel, true if succeeds, false otherwise
-void move_pixel(ivec2 current, ivec2 target, vec4 current_color) {
-  vec4 target_color = imageLoad(img_output, target);
-  write_pixel(target, target_color);
-}
-
 void write_pixel(ivec2 pixel, vec4 color) {
   imageStore(img_output, pixel, color);
   imageStore(update_map, pixel, vec4(1, 1, 1, 1));
 }
 
+
+bool pixel_already_set(ivec2 pixel) {
+  vec4 is_pixel_set = imageLoad(update_map, pixel);
+  return is_pixel_set.r >= 0.999;
+}
 
 

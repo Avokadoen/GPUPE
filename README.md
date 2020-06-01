@@ -18,7 +18,9 @@ Using compute shader to update a texture
 
 [compute shader test2](https://i.imgur.com/9YsamC4.gif)
 
-![compute fragments](https://imgur.com/gallery/NxnmO9Z)
+[compute fragments bug](https://i.imgur.com/jaUMwTL.gif)
+
+![first working water demo](https://i.imgur.com/A4S0D4M.gif)
 
 # Contribution
 
