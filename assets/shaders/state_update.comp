@@ -1,90 +1,151 @@
 #version 430
 layout(local_size_x = 1, local_size_y = 1) in;
 layout(rgba32f, binding = 0) uniform image2D img_output;
+layout(r8, binding = 1) uniform image2D update_map;
+
+// TODO: currently looping x over y. This is bad for cache reasons. Refactor to invert this
+
+// TOOD: pixels moving upwards or right will be updated multiple times on each dispatch because 
+//       we iterate left to right and down to up in each chunk. We need to find a way to mark pixels as updated
 
 uniform int pass_type         = 0;
-const int FRAGMENT_PASS_TYPE  = 0;
-const int HORIZONTAL_PASS     = 1;
-const int VERTICAL_PASS       = 2;
+const int CHUNK_PASS          = 0;
+const int VERTICAL_PASS       = 1;
+const int HORIZONTAL_PASS     = 2;
+const int CLEANUP_PASS        = 3;
 
 // compute pass type operation
 void fragment_pass();
-void horizontal_pass();
 void vertical_pass();
+void horizontal_pass();
+void cleanup_pass();
+void update(ivec2 left_bottom_corner, ivec2 offset, ivec2 velocity);
 
 // pixel functions
 void move_pixel(ivec2 current, ivec2 target, vec4 current_color);
+void write_pixel(ivec2 pixel, vec4 color);
 bool pixel_taken(ivec2 pixel);
 bool pixel_in_chunk(ivec2 pixel, ivec2 left_bottom_corner);
 bool pixel_in_texture(ivec2 pixel);
 
 void main() {
   switch (pass_type) {
-    case FRAGMENT_PASS_TYPE:
+    case CHUNK_PASS:
       fragment_pass();
+      break;
+    case VERTICAL_PASS:
+      vertical_pass();
       break;
     case HORIZONTAL_PASS:
       horizontal_pass();
       break;
-    case VERTICAL_PASS:
-      vertical_pass();
+    case CLEANUP_PASS:
+      cleanup_pass();
       break;
     default:
       break;
   }
 }
 
+// TODO: using one update function for every pass is probably problematic
+void update(ivec2 chunk_start, ivec2 offset, ivec2 velocity) {
+  ivec2 pixel_coords  = chunk_start + offset;
+  
+  { // If image already set this frame
+    vec4 is_pixel_set = imageLoad(update_map, pixel_coords);
+    if (is_pixel_set.r >= 0.999) {
+      return;
+    }
+  }
+
+  vec4 current_color  = imageLoad(img_output, pixel_coords);
+
+  if (pass_type == VERTICAL_PASS && velocity.x != 0 ) {
+    return;
+  }
+  
+  if (pass_type == HORIZONTAL_PASS && velocity.y != 0) {
+    return;
+  }
+
+  if (current_color.b > 0) { // TODO: logic to select only water pixels
+    ivec2 under_coords = pixel_coords + velocity;
+    // if we are in the intersection between a chunk we should not care about chunks in a non fragment passs
+    bool chunk_border_accept = (pass_type != CHUNK_PASS) ? true : pixel_in_chunk(under_coords, chunk_start);  
+  
+    if (pixel_in_texture(under_coords) && chunk_border_accept && !pixel_taken(under_coords)) {
+      write_pixel(under_coords, current_color);
+    } else {
+      write_pixel(pixel_coords, current_color);
+      return;
+    }
+  }
+  write_pixel(pixel_coords, vec4(0, 0, 0, 0));
+}
+
 void fragment_pass() {
-  ivec2 left_bottom_corner = ivec2(gl_GlobalInvocationID.x * 8, gl_GlobalInvocationID.y * 8);
+  // TODO: this migth be common among all passes
+  ivec2 chunk_start = ivec2(gl_GlobalInvocationID.x * 8, gl_GlobalInvocationID.y * 8);
 
   for (uint x = 0; x < 8; x++) {
     for (uint y = 0; y < 8; y++) {
-      ivec2 pixel_coords = left_bottom_corner + ivec2(x, y);
-      vec4 current_color = imageLoad(img_output, pixel_coords); 
+      ivec2 velocity = ivec2(0, -1);
+      update(chunk_start, ivec2(x, y), velocity);
+    }
+  }
+}
 
-      if (current_color.b > 0) { // TODO: logic to select only water pixels
-        ivec2 under_coords = pixel_coords + ivec2(0, -1);
-        
-        if (pixel_in_texture(under_coords) && pixel_in_chunk(under_coords, left_bottom_corner) && !pixel_taken(under_coords)) {
-          imageStore(img_output, under_coords, current_color);
-        } else {
-          imageStore(img_output, pixel_coords, current_color);
-          return;
-        }
-      }
-      
-      imageStore(img_output, pixel_coords, vec4(0, 0, 0, 0));
+void vertical_pass() {
+  ivec2 chunk_start = ivec2(gl_GlobalInvocationID.x * 8, (gl_GlobalInvocationID.y * 8) - 1);
+  
+  for (uint x = 0; x < 8; x++) {
+    for (uint y = 0; y < 2; y++) {
+      ivec2 velocity = ivec2(0, -1);
+      update(chunk_start, ivec2(x, y), velocity);
     }
   }
 }
 
 void horizontal_pass() {
-  ivec2 left_bottom_corner = ivec2(gl_GlobalInvocationID.x * 8, gl_GlobalInvocationID.y * 8);
-   imageStore(img_output, left_bottom_corner, vec4(1, 0, 0, 1));
+  ivec2 chunk_start = ivec2((gl_GlobalInvocationID.x * 8) - 1, gl_GlobalInvocationID.y * 8);
+   for (uint x = 0; x < 2; x++) {
+    for (uint y = 0; y < 8; y++) {
+      ivec2 velocity = ivec2(0, -1);
+      update(chunk_start, ivec2(x, y), velocity);
+    }
+  }
 }
 
-void vertical_pass() {
-  ivec2 left_bottom_corner = ivec2(gl_GlobalInvocationID.x * 8, gl_GlobalInvocationID.y * 8);
-  imageStore(img_output, left_bottom_corner, vec4(0, 1, 0, 1));
+void cleanup_pass() {
+  ivec2 pixel = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+  imageStore(update_map, pixel, vec4(0, 0, 0, 0));
 }
+
 
 bool pixel_taken(ivec2 pixel) {
-      return imageLoad(img_output, pixel).b > 0;
+  return imageLoad(img_output, pixel).b > 0; // TODO: logic to check if air pixel
 }
 
 bool pixel_in_chunk(ivec2 pixel, ivec2 left_bottom_corner) {
-  return  pixel.x >= left_bottom_corner.x && pixel.x < left_bottom_corner.x + 8 &&
-          pixel.y >= left_bottom_corner.y && pixel.y < left_bottom_corner.y + 8;
+  if (pass_type != CHUNK_PASS) return true;
+
+  return  pixel.x >= left_bottom_corner.x && pixel.x < (left_bottom_corner.x + 8) &&
+          pixel.y >= left_bottom_corner.y && pixel.y < (left_bottom_corner.y + 8);
 }
 
 bool pixel_in_texture(ivec2 pixel) {
-  return  pixel.x > 0 && pixel.y > 0 && pixel.x < 512 && pixel.y < 512;
+  return  pixel.x >= 0 && pixel.y >= 0 && pixel.x < 512 && pixel.y < 512;
 }
 
 /// attempts to move a pixel, true if succeeds, false otherwise
 void move_pixel(ivec2 current, ivec2 target, vec4 current_color) {
   vec4 target_color = imageLoad(img_output, target);
-  imageStore(img_output, target, current_color);
+  write_pixel(target, target_color);
+}
+
+void write_pixel(ivec2 pixel, vec4 color) {
+  imageStore(img_output, pixel, color);
+  imageStore(update_map, pixel, vec4(1, 1, 1, 1));
 }
 
 

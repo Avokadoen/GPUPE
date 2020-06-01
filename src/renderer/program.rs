@@ -25,7 +25,6 @@ impl Program {
     pub fn set_i32(&mut self, name: &str, value: i32) -> Result<(), String> {
         if self.register_uniform(name) {
             unsafe {
-                println!("{}, {}", self.uniforms[name], value);
                 gl::ProgramUniform1i(self.id, self.uniforms[name], value);
             }
             return Ok(());

@@ -112,10 +112,11 @@ fn main() {
     // TODO: avoid copy
     let rust_image = image::imageops::flip_vertical(&rust_image);
 
+    // TODO: if image width & heigth != texture size
+
     let mut compute_tex_output: gl::types::GLuint = 0;
     unsafe { 
         gl::GenTextures(1, &mut compute_tex_output);
-        gl::ActiveTexture(gl::TEXTURE0);
         gl::BindTexture(gl::TEXTURE_2D, compute_tex_output);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_BORDER as i32);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as i32);
@@ -135,6 +136,30 @@ fn main() {
         gl::BindImageTexture(0, compute_tex_output, 0, gl::FALSE, 0, gl::READ_WRITE, gl::RGBA32F);
     }
     let tex_output = compute_tex_output;
+
+    let mut updated_map_tex: gl::types::GLuint = 0;
+    unsafe { 
+        gl::ActiveTexture(gl::TEXTURE1);
+        gl::GenTextures(1, &mut updated_map_tex);
+        gl::BindTexture(gl::TEXTURE_2D, updated_map_tex);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_BORDER as i32);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as i32);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
+        gl::TexImage2D(
+            gl::TEXTURE_2D, 
+            0, 
+            gl::RED as i32, 
+            512,
+            512,
+            0, 
+            gl::RED, 
+            gl::UNSIGNED_BYTE, 
+            std::ptr::null()
+        );
+        gl::BindImageTexture(1, updated_map_tex, 0, gl::FALSE, 0, gl::READ_WRITE, gl::R8);
+    }
+    let updated_map_tex = updated_map_tex;
 
     let mut vao: gl::types::GLuint = 0;
     unsafe {
@@ -198,36 +223,49 @@ fn main() {
         Program::from_shaders(&[shader]).unwrap()
     }; 
 
-    fn dispatch_compute(state_update_comp: &Program) {
+    fn dispatch_compute(state_update_comp: &mut Program) {
         state_update_comp.set_used();
-        unsafe {
+
+        // TODO: we don't really need to loop and dispatch. We can do all passes in one dispatch! (execpt cleanup)
+        for pass_type in (0..4).rev() {
+            // TODO: don't unwrap
+            state_update_comp.set_i32("pass_type", pass_type).unwrap();
+            
             // NOTE: CHUNK SIZE
             // TODO: this should not be hardcoded. Should be handled by some compute state abstraction
             // 512 / 8 = 64
-            gl::DispatchCompute(64, 64, 1);
-            gl::MemoryBarrier(gl::SHADER_IMAGE_ACCESS_BARRIER_BIT);
+            let chunk_size = {
+                if pass_type < 3 {
+                    64
+                } else {
+                    512
+                }
+            };
+
+            unsafe {
+                gl::DispatchCompute(chunk_size, chunk_size, 1);
+                gl::MemoryBarrier(gl::SHADER_IMAGE_ACCESS_BARRIER_BIT);
+            }
         }
     }
 
     // TODO: lock screen from being stretched
     let mut event_pump = sdl.event_pump().unwrap();
     'main: loop {
+        unsafe {
+            gl::ActiveTexture(gl::TEXTURE0);
+            gl::BindTexture(gl::TEXTURE_2D, tex_output);
+            gl::ActiveTexture(gl::TEXTURE1);
+            gl::BindTexture(gl::TEXTURE_2D, updated_map_tex);
+        }
+
         for event in event_pump.poll_iter() {
             use sdl2::keyboard::Keycode;
             match event {
                 Event::Quit { .. } => break 'main,
                 Event::KeyDown { keycode, .. } => match keycode {
                     Some(Keycode::D) => {
-                        dispatch_compute(&state_update_comp);
-                    },
-                    Some(Keycode::Num0) => {
-                        state_update_comp.set_i32("pass_type", 0).unwrap();
-                    },
-                    Some(Keycode::Num1) => {
-                        state_update_comp.set_i32("pass_type", 1).unwrap();
-                    },
-                    Some(Keycode::Num2) => {
-                        state_update_comp.set_i32("pass_type", 2).unwrap();
+                        dispatch_compute(&mut state_update_comp);
                     },
                     _ => println!("Keydown: {:?}", keycode)
                 },
@@ -236,7 +274,7 @@ fn main() {
             }
         }
 
-        //dispatch_compute(&state_update_comp);
+        dispatch_compute(&mut state_update_comp);
 
         unsafe {
             gl::Clear(gl::COLOR_BUFFER_BIT);
@@ -245,7 +283,6 @@ fn main() {
         triangle_program.set_used();
 
         unsafe {
-            gl::BindTexture(gl::TEXTURE_2D, tex_output);
             gl::BindVertexArray(vao);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, i_vbo);
 
@@ -256,6 +293,11 @@ fn main() {
                 std::ptr::null()
             );
 
+            // This has probably some overhead and is not needed for our simple needs 
+            // but let's be good and unbind
+            gl::ActiveTexture(gl::TEXTURE0);
+            gl::BindTexture(gl::TEXTURE_2D, 0);
+            gl::ActiveTexture(gl::TEXTURE1);
             gl::BindTexture(gl::TEXTURE_2D, 0);
             gl::BindVertexArray(0);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
