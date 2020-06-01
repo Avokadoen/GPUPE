@@ -56,8 +56,8 @@ void main() {
 
 void fragment_pass() {
   ivec2 chunk_start = ivec2(gl_GlobalInvocationID.x * 8, gl_GlobalInvocationID.y * 8);
-  for (uint x = 0; x < 8; x++) {
-    for (uint y = 0; y < 8; y++) {
+  for (uint y = 0; y < 8; y++) {
+    for (uint x = 0; x < 8; x++) {
       update(chunk_start, ivec2(x, y));
     }
   }
@@ -65,8 +65,8 @@ void fragment_pass() {
 
 void vertical_pass() {
   ivec2 chunk_start = ivec2(gl_GlobalInvocationID.x * 8, (gl_GlobalInvocationID.y * 8) - 1);
-  for (uint x = 0; x < 8; x++) {
-    for (uint y = 0; y < 2; y++) {
+  for (uint y = 0; y < 2; y++) {
+    for (uint x = 0; x < 8; x++) {
       update(chunk_start, ivec2(x, y));
     }
   }
@@ -74,8 +74,8 @@ void vertical_pass() {
 
 void horizontal_pass() {
   ivec2 chunk_start = ivec2((gl_GlobalInvocationID.x * 8) - 1, gl_GlobalInvocationID.y * 8);
+  for (uint y = 0; y < 8; y++) {
    for (uint x = 0; x < 2; x++) {
-    for (uint y = 0; y < 8; y++) {
       update(chunk_start, ivec2(x, y));
     }
   }
@@ -131,9 +131,9 @@ bool valid_change_for_pass(ivec2 velocity) {
 }
 
 int attempt_move_pixel(ivec2 pixel, ivec2 chunk_start, ivec2 velocity, vec4 current_color) {
-    if (!valid_change_for_pass(velocity)) {
-      return ATTEMPT_END;
-    }
+    // if (!valid_change_for_pass(velocity)) {
+    //   return ATTEMPT_END;
+    // }
 
     ivec2 next_coords = pixel + velocity;
     // if we are in the intersection between a chunk we should not care about chunks in a non fragment passs

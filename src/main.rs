@@ -4,14 +4,18 @@ extern crate image;
 
 use sdl2::event::Event;
 use std::path::Path;
+use std::time::Instant;
 
 mod renderer;
+mod utility;
 mod resources;
 
 use resources::Resources;
 use renderer::{
     program::Program, 
 };
+
+use utility::camera::{Camera, Direction};
 
 // TODO: currently lots of opengl stuff. Move all of it into renderer module
 
@@ -105,7 +109,7 @@ fn main() {
 
     // TODO: this is just test code to make compute shader work, we need abstractions to make this prettier and more generic
     // dimensions of the image
-    let rust_image = res.load_image("textures/fragment_water_test.png")
+    let rust_image = res.load_image("textures/water_test.png")
         .unwrap()
         .into_rgba();
     
@@ -249,15 +253,25 @@ fn main() {
         }
     }
 
+    // We only use these two textures, so we bind them before render loop and forget about them
+    // this is somewhat bad practice, but in our case the consequenses are non existant
+    unsafe {
+        gl::ActiveTexture(gl::TEXTURE0);
+        gl::BindTexture(gl::TEXTURE_2D, tex_output);
+        gl::ActiveTexture(gl::TEXTURE1);
+        gl::BindTexture(gl::TEXTURE_2D, updated_map_tex);
+    }
+
+    let mut  now = Instant::now();
+    let mut last: Instant;
+    let mut  delta_time: f64 = 0.0;
+
     // TODO: lock screen from being stretched
     let mut event_pump = sdl.event_pump().unwrap();
     'main: loop {
-        unsafe {
-            gl::ActiveTexture(gl::TEXTURE0);
-            gl::BindTexture(gl::TEXTURE_2D, tex_output);
-            gl::ActiveTexture(gl::TEXTURE1);
-            gl::BindTexture(gl::TEXTURE_2D, updated_map_tex);
-        }
+        last = now;
+        now = Instant::now();
+        delta_time = (last.elapsed().as_millis() - now.elapsed().as_millis()) as f64 / 1000.0;
 
         for event in event_pump.poll_iter() {
             use sdl2::keyboard::Keycode;
@@ -265,7 +279,7 @@ fn main() {
                 Event::Quit { .. } => break 'main,
                 Event::KeyDown { keycode, .. } => match keycode {
                     Some(Keycode::D) => {
-                        dispatch_compute(&mut state_update_comp);
+                        //dispatch_compute(&mut state_update_comp);
                     },
                     _ => println!("Keydown: {:?}", keycode)
                 },
@@ -293,12 +307,6 @@ fn main() {
                 std::ptr::null()
             );
 
-            // This has probably some overhead and is not needed for our simple needs 
-            // but let's be good and unbind
-            gl::ActiveTexture(gl::TEXTURE0);
-            gl::BindTexture(gl::TEXTURE_2D, 0);
-            gl::ActiveTexture(gl::TEXTURE1);
-            gl::BindTexture(gl::TEXTURE_2D, 0);
             gl::BindVertexArray(0);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
         }
