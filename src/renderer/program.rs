@@ -22,6 +22,7 @@ impl Program {
         }
     }
 
+    // TODO: macro for this
     pub fn set_i32(&mut self, name: &str, value: i32) -> Result<(), String> {
         if self.register_uniform(name) {
             unsafe {
@@ -32,6 +33,18 @@ impl Program {
 
         // TODO: proper error handling
         return Err(format!("failed to find specified i32 {}", name));
+    }
+
+    pub fn set_f32(&mut self, name: &str, value: f32) -> Result<(), String> {
+        if self.register_uniform(name) {
+            unsafe {
+                gl::ProgramUniform1f(self.id, self.uniforms[name], value);
+            }
+            return Ok(());
+        }
+
+        // TODO: proper error handling
+        return Err(format!("failed to find specified f32 {}", name));
     }
 
     /// creates a program out of a folder path that contains both a fragment shader and vertex shader
