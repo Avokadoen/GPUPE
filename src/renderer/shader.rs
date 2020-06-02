@@ -2,11 +2,9 @@
 // Used for shaders
 use std::ffi::CStr;
 
-// TODO: super::super is probably a symptom of bad architecture
 use crate::resources::Resources;
 
 // TODO: Shader error type
-
 use gl::types::{
     GLuint,
     GLenum,

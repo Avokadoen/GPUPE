@@ -1,6 +1,7 @@
 extern crate gl;
 extern crate sdl2;
 extern crate image;
+extern crate cgmath;
 
 use sdl2::event::Event;
 use std::path::Path;
@@ -15,7 +16,7 @@ use renderer::{
     program::Program, 
 };
 
-use utility::camera::{Camera, Direction};
+use utility::camera::Camera;
 
 // TODO: currently lots of opengl stuff. Move all of it into renderer module
 
@@ -58,7 +59,7 @@ fn main() {
     // TODO: if we want chunks, then this should be generalized (buffers)
     // TODO: rename: triangle -> default
     // create quad data
-    let triangle_program = Program::from_resources(&res, "shaders/triangle").unwrap();
+    let mut triangle_program = Program::from_resources(&res, "shaders/triangle").unwrap();
 
     let vertices: Vec<f32> = vec![
     //   x,    y    z,   u,   v   
@@ -262,9 +263,12 @@ fn main() {
         gl::BindTexture(gl::TEXTURE_2D, updated_map_tex);
     }
 
-    let mut  now = Instant::now();
+    // TODO: put in utility
+    let mut now = Instant::now();
     let mut last: Instant;
-    let mut  delta_time: f64 = 0.0;
+    let mut delta_time: f64 = 0.0;
+
+    let mut camera: Camera = Default::default();
 
     // TODO: lock screen from being stretched
     let mut event_pump = sdl.event_pump().unwrap();
@@ -283,6 +287,10 @@ fn main() {
                     },
                     _ => println!("Keydown: {:?}", keycode)
                 },
+                Event::MouseWheel { y, ..} => {
+                    camera.modify_zoom(delta_time, y as f32);
+                    triangle_program.set_f32("zoom", camera.zoom()).unwrap();
+                }, 
                 Event::KeyUp { keycode, .. } => println!("Keyup: {:?}", keycode),
                 _ => {}
             }
