@@ -35,10 +35,10 @@ impl Program {
         return Err(format!("failed to find specified i32 {}", name));
     }
 
-    pub fn set_f32(&mut self, name: &str, value: f32) -> Result<(), String> {
+    pub fn set_vector3_f32(&mut self, name: &str, value: cgmath::Vector3<f32>) -> Result<(), String> {
         if self.register_uniform(name) {
             unsafe {
-                gl::ProgramUniform1f(self.id, self.uniforms[name], value);
+                gl::ProgramUniform3f(self.id, self.uniforms[name], value.x, value.y, value.z);
             }
             return Ok(());
         }

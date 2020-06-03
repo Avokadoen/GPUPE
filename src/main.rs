@@ -4,6 +4,8 @@ extern crate image;
 extern crate cgmath;
 
 use sdl2::event::Event;
+use sdl2::keyboard::Keycode;
+
 use std::path::Path;
 use std::time::Instant;
 
@@ -16,7 +18,11 @@ use renderer::{
     program::Program, 
 };
 
-use utility::camera::Camera;
+use utility::{
+    camera::Camera2D, 
+    input_handler::InputHandler,
+    direction::Direction,
+};
 
 // TODO: currently lots of opengl stuff. Move all of it into renderer module
 
@@ -268,7 +274,8 @@ fn main() {
     let mut last: Instant;
     let mut delta_time: f64 = 0.0;
 
-    let mut camera: Camera = Default::default();
+    let mut camera: Camera2D = Default::default();
+    let mut input_handler: InputHandler = Default::default();
 
     // TODO: lock screen from being stretched
     let mut event_pump = sdl.event_pump().unwrap();
@@ -278,23 +285,37 @@ fn main() {
         delta_time = (last.elapsed().as_millis() - now.elapsed().as_millis()) as f64 / 1000.0;
 
         for event in event_pump.poll_iter() {
-            use sdl2::keyboard::Keycode;
             match event {
                 Event::Quit { .. } => break 'main,
-                Event::KeyDown { keycode, .. } => match keycode {
-                    Some(Keycode::D) => {
-                        //dispatch_compute(&mut state_update_comp);
-                    },
-                    _ => println!("Keydown: {:?}", keycode)
-                },
+                Event::KeyDown { keycode, .. } => input_handler.on_key_down(keycode),
+                Event::KeyUp { keycode, .. } => input_handler.on_key_up(keycode),
                 Event::MouseWheel { y, ..} => {
                     camera.modify_zoom(delta_time, y as f32);
-                    triangle_program.set_f32("zoom", camera.zoom()).unwrap();
                 }, 
-                Event::KeyUp { keycode, .. } => println!("Keyup: {:?}", keycode),
                 _ => {}
             }
         }
+
+        // TODO: this should be done by some sort of observer like pattern, but this will work for now
+        //       as soon as we need runtime config for keybindings this will be a problem
+        for keycode in &input_handler.active_keys {
+            match keycode {
+                Keycode::W => camera.pan_in_direction(Direction::Up),
+                Keycode::A => camera.pan_in_direction(Direction::Left),
+                Keycode::S => camera.pan_in_direction(Direction::Down),
+                Keycode::D => camera.pan_in_direction(Direction::Rigth),
+                _ => ()
+            }
+        }
+
+        if camera.commit_pan_zoom(delta_time) {
+            // TODO: error handling for this
+            match triangle_program.set_vector3_f32("cameraPos", camera.position()) {
+                Ok(()) => (),
+                Err(err) => println!("got error setting cameraPos: {}", err)
+            }
+        }
+
 
         dispatch_compute(&mut state_update_comp);
 
@@ -321,6 +342,5 @@ fn main() {
 
         window.gl_swap_window();
     }
-    // glDeleteFramebuffers(1, &fbo);  
     // texture delete ...
 }
