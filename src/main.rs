@@ -16,10 +16,7 @@ use renderer::{
     program::Program, 
 };
 
-use utility::camera::{
-    Camera, 
-    Direction
-};
+use utility::camera::Camera;
 
 // TODO: currently lots of opengl stuff. Move all of it into renderer module
 
