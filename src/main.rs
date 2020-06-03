@@ -272,7 +272,11 @@ fn main() {
     // TODO: put in utility
     let mut now = Instant::now();
     let mut last: Instant;
-    let mut delta_time: f64 = 0.0;
+    let mut delta_time: f64;
+
+    // TODO: put in utlity
+    let mut second_tick: f64 = 0.0;
+    let mut frames: i32 = 0;
 
     let mut camera: Camera2D = Default::default();
     let mut input_handler: InputHandler = Default::default();
@@ -283,6 +287,13 @@ fn main() {
         last = now;
         now = Instant::now();
         delta_time = (last.elapsed().as_millis() - now.elapsed().as_millis()) as f64 / 1000.0;
+        second_tick += delta_time;
+        frames += 1;
+        if second_tick > 1.0 {
+            second_tick = 0.0;
+            println!("fps: {}", frames);
+            frames = 0;
+        }
 
         for event in event_pump.poll_iter() {
             match event {
