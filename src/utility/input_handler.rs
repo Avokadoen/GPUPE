@@ -1,8 +1,10 @@
 use std::vec::Vec;
+use std::option::Option;
+
 use sdl2::keyboard::Keycode;
 
-struct InputHandler {
-    active_keys: Vec<Keycode>,
+pub struct InputHandler {
+    pub active_keys: Vec<Keycode>,
 }
 
 impl Default for InputHandler {
@@ -15,13 +17,24 @@ impl Default for InputHandler {
 }
 
 impl InputHandler {
-    fn on_key_down(&mut self, key: Keycode) {
+    pub fn on_key_down(&mut self, key_o: Option<Keycode>) {
+        // TODO: consider macro if we have to duplicate this more
+        let key =  match key_o {
+            Some(k) => k,
+            None => return,
+        };
+
         self.active_keys.push(key);
     }
 
-    fn on_key_up(&mut self, key: Keycode) {
-        match self.active_keys.iter().position(|k| k == Keycode) {
-            Some(n) => self.active_keys.swap_remove(n),
+    pub fn on_key_up(&mut self, key_o: Option<Keycode>) {
+        let key =  match key_o {
+            Some(k) => k,
+            None => return,
+        };
+
+        match self.active_keys.iter().position(|k| k == &key) {
+            Some(n) => { self.active_keys.swap_remove(n); },
             None => (),
         };
     }
