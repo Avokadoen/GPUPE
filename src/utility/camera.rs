@@ -18,7 +18,7 @@ pub struct Camera2D {
 impl Default for Camera2D {
     fn default() -> Camera2D {
         Self {
-            zoom_speed: 4.0,
+            zoom_speed: 6.0,
             zoom_velocity: 0.0,
             pan_speed: 3.0,
             pan_direction: Vector2::new(0.0, 0.0),
