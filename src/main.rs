@@ -16,7 +16,10 @@ use renderer::{
     program::Program, 
 };
 
-use utility::camera::Camera;
+use utility::{
+    camera::Camera, 
+    input_handler::InputHandler,
+};
 
 // TODO: currently lots of opengl stuff. Move all of it into renderer module
 
@@ -269,6 +272,7 @@ fn main() {
     let mut delta_time: f64 = 0.0;
 
     let mut camera: Camera = Default::default();
+    let mut input_handler: InputHandler 
 
     // TODO: lock screen from being stretched
     let mut event_pump = sdl.event_pump().unwrap();
@@ -281,12 +285,7 @@ fn main() {
             use sdl2::keyboard::Keycode;
             match event {
                 Event::Quit { .. } => break 'main,
-                Event::KeyDown { keycode, .. } => match keycode {
-                    Some(Keycode::D) => {
-                        //dispatch_compute(&mut state_update_comp);
-                    },
-                    _ => println!("Keydown: {:?}", keycode)
-                },
+                Event::KeyDown { keycode, .. } => ,
                 Event::MouseWheel { y, ..} => {
                     camera.modify_zoom(delta_time, y as f32);
                     triangle_program.set_f32("zoom", camera.zoom()).unwrap();

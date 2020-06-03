@@ -1,4 +1,6 @@
-use cgmath::{Vector2};
+use cgmath::Vector2;
+use crate::cgmath::InnerSpace;
+
 pub struct Camera {
     /// uniform scale of our quad(s)
     zoom: f32,
@@ -30,6 +32,9 @@ impl Camera {
     }
 
     pub fn pan(&mut self, delta_time: f64, direction: Vector2<f32>) {
-
+        let direction = direction.normalize();
+        let delta_time = delta_time as f32;
+        self.position.x += direction.x * self.pan_speed * delta_time;
+        self.position.y += direction.y * self.pan_speed * delta_time;
     }
 }
