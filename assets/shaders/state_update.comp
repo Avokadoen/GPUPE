@@ -70,8 +70,8 @@ void fragment_pass() {
 }
 
 void vertical_pass() {
-  ivec2 chunk_start = ivec2(gl_GlobalInvocationID.x * 8, (gl_GlobalInvocationID.y * 8) - 1);
-  for (uint x = 0; x < 2; x++) {
+  ivec2 chunk_start = ivec2(gl_GlobalInvocationID.x * 8, gl_GlobalInvocationID.y * 8);
+  for (uint x = 7; x < 9; x++) {
     for (uint y = 0; y < 8; y++) {
       update(chunk_start, ivec2(x, y));
     }
@@ -79,10 +79,10 @@ void vertical_pass() {
 }
 
 void horizontal_pass() {
-  ivec2 chunk_start = ivec2((gl_GlobalInvocationID.x * 8) - 1, gl_GlobalInvocationID.y * 8);
+  ivec2 chunk_start = ivec2(gl_GlobalInvocationID.x * 8, (gl_GlobalInvocationID.y * 8) - 2);
   for (uint x = 0; x < 8; x++) {
-   for (uint y = 0; y < 2; y++) {
-      update(chunk_start, ivec2(x, y));
+   for (uint y = 0; y < 3; y++) {
+      update(chunk_start, ivec2(x, y));   
     }
   }
 }
@@ -111,9 +111,18 @@ void update(ivec2 chunk_start, ivec2 offset) {
       if (i == 0) {
         velocity = ivec2(0, -1);
       } else if (i == 1) {
-        velocity = ivec2(-1, 0);
+        // hack to make water act more natural while the concept of velocity is non-existing
+        if (pixel_coords.x < 256) {
+          velocity = ivec2(-1, 0);
+        } else {
+          velocity = ivec2(1, 0);
+        }  
       } else {
-        velocity = ivec2(1, 0);
+        if (pixel_coords.x < 256) {
+          velocity = ivec2(1, 0);
+        } else {
+          velocity = ivec2(-1, 0);
+        }
       }
 
       attempt_result = attempt_move_pixel(pixel_coords, chunk_start, velocity, current_color);
@@ -121,7 +130,9 @@ void update(ivec2 chunk_start, ivec2 offset) {
   }
   
   if (attempt_result == ATTEMPT_SUCCEEDS) {
-    write_pixel(pixel_coords, vec4(0, 0, 0, 0));
+    imageStore(img_output, pixel_coords, vec4(0, 0, 0, 0));
+  } else if (attempt_result == ATTEMPT_PIXEL_BLOCKED) {
+    imageStore(update_map, pixel_coords, vec4(1, 1, 1, 1));
   }
 }
 
@@ -138,10 +149,6 @@ bool valid_change_for_pass(ivec2 velocity) {
 }
 
 int attempt_move_pixel(ivec2 pixel, ivec2 chunk_start, ivec2 velocity, vec4 current_color) {
-    // if (!valid_change_for_pass(velocity)) {
-    //   return ATTEMPT_END;
-    // }
-
     ivec2 next_coords = pixel + velocity;
     // if we are in the intersection between a chunk we should not care about chunks in a non fragment passs
     bool chunk_border_accept = (pass_type != CHUNK_PASS) ? true : pixel_in_chunk(next_coords, chunk_start);  

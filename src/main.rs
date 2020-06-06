@@ -329,14 +329,13 @@ fn main() {
 
 
         dispatch_compute(&mut state_update_comp);
-
-        unsafe {
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-        }
-
         triangle_program.set_used();
 
         unsafe {
+            // TODO: keybinding to select desired texture at runtime instead ..
+            // gl::ActiveTexture(gl::TEXTURE0);
+            // gl::BindTexture(gl::TEXTURE_2D, updated_map_tex);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
             gl::BindVertexArray(vao);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, i_vbo);
 
@@ -349,6 +348,8 @@ fn main() {
 
             gl::BindVertexArray(0);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
+            // gl::ActiveTexture(gl::TEXTURE0);
+            // gl::BindTexture(gl::TEXTURE_2D, tex_output);
         }
 
         window.gl_swap_window();
