@@ -3,16 +3,18 @@ layout(local_size_x = 1, local_size_y = 1) in;
 layout(rgba32f, binding = 0) uniform image2D img_output;
 layout(r8, binding = 1) uniform image2D update_map;
 
-// TODO: currently looping x over y. This is bad for cache reasons. Refactor to invert this
-
-// TOOD: pixels moving upwards or right will be updated multiple times on each dispatch because 
-//       we iterate left to right and down to up in each chunk. We need to find a way to mark pixels as updated
-
 // TODO: It would probably be faster to seperate passes into unique shaders. We will have to find a way
 //       to share code between them before we do this 
+// TODO: we can do all passes in one dispatch 
 
-// TODO: currently the water behave very strange. Implementing wind and velocity would mediate a lot of the ugly
-//       behaviour
+// TODO: currently the water behave very strange. 
+//        - Implementing wind and velocity would mediate a lot of the ugly
+//          behaviour
+//        - More debugging on the update_map (suspicion of this being bug)
+//        - Find solution to this case: 
+//              - Pixel tries to move in a direction
+//              - Pixel gets blocked by other pixel
+//              - Other pixel moves the same frame, and Pixel was actually clear to move
 
 uniform int pass_type         = 0;
 const int CHUNK_PASS          = 0;
@@ -30,8 +32,11 @@ void update(ivec2 left_bottom_corner, ivec2 offset);
 bool valid_change_for_pass(ivec2 velocity);
 
 const int ATTEMPT_SUCCEEDS      = 0;
-const int ATTEMPT_END           = -1; // This means the change was denied as change is outside of our Jurisdiction
-const int ATTEMPT_PIXEL_BLOCKED = -2; // This means we can try in other directions if we want
+// This means the change was denied as change is outside of the pass Jurisdiction
+const int ATTEMPT_END           = -1; 
+// This means we can try in other directions if we want
+const int ATTEMPT_PIXEL_BLOCKED = -2; 
+
 // pixel functions
 int attempt_move_pixel(ivec2 pixel, ivec2 chunk_start, ivec2 velocity, vec4 current_color);
 
@@ -62,8 +67,8 @@ void main() {
 
 void fragment_pass() {
   ivec2 chunk_start = ivec2(gl_GlobalInvocationID.x * 8, gl_GlobalInvocationID.y * 8);
-  for (uint x = 0; x < 8; x++) {
-    for (uint y = 0; y < 8; y++) {
+  for (uint y = 0; y < 8; y++) {
+    for (uint x = 0; x < 8; x++) {
       update(chunk_start, ivec2(x, y));
     }
   }
@@ -71,8 +76,8 @@ void fragment_pass() {
 
 void vertical_pass() {
   ivec2 chunk_start = ivec2(gl_GlobalInvocationID.x * 8, gl_GlobalInvocationID.y * 8);
-  for (uint x = 7; x < 9; x++) {
-    for (uint y = 0; y < 8; y++) {
+  for (uint y = 0; y < 8; y++) {
+    for (uint x = 7; x < 9; x++) {
       update(chunk_start, ivec2(x, y));
     }
   }
@@ -80,8 +85,8 @@ void vertical_pass() {
 
 void horizontal_pass() {
   ivec2 chunk_start = ivec2(gl_GlobalInvocationID.x * 8, (gl_GlobalInvocationID.y * 8) - 2);
-  for (uint x = 0; x < 8; x++) {
-   for (uint y = 0; y < 3; y++) {
+  for (uint y = 0; y < 3; y++) {
+   for (uint x = 0; x < 8; x++) {
       update(chunk_start, ivec2(x, y));   
     }
   }

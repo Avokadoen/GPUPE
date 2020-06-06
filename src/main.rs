@@ -116,7 +116,7 @@ fn main() {
 
     // TODO: this is just test code to make compute shader work, we need abstractions to make this prettier and more generic
     // dimensions of the image
-    let rust_image = res.load_image("textures/water_test.png")
+    let rust_image = res.load_image("textures/fragment_water_test.png")
         .unwrap()
         .into_rgba();
     
