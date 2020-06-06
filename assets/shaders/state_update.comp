@@ -2,6 +2,7 @@
 layout(local_size_x = 1, local_size_y = 1) in;
 layout(rgba32f, binding = 0) uniform image2D img_output;
 layout(r8, binding = 1) uniform image2D update_map;
+layout(rg32f, binding = 2) uniform image2D velocity_map;
 
 // TODO: It would probably be faster to seperate passes into unique shaders. We will have to find a way
 //       to share code between them before we do this 
@@ -40,11 +41,10 @@ const int ATTEMPT_PIXEL_BLOCKED = -2;
 // pixel functions
 int attempt_move_pixel(ivec2 pixel, ivec2 chunk_start, ivec2 velocity, vec4 current_color);
 
-void write_pixel(ivec2 pixel, vec4 color);
+void write_pixel(ivec2 pixel, vec4 color, ivec2 velocity);
 bool pixel_taken(ivec2 pixel);
 bool pixel_in_chunk(ivec2 pixel, ivec2 left_bottom_corner);
 bool pixel_in_texture(ivec2 pixel);
-bool pixel_already_set(ivec2 pixel);
 
 void main() {
   switch (pass_type) {
@@ -102,7 +102,8 @@ void cleanup_pass() {
 void update(ivec2 chunk_start, ivec2 offset) {
   ivec2 pixel_coords = chunk_start + offset;
   
-  if (pixel_already_set(pixel_coords)) {
+  vec4 is_pixel_set = imageLoad(update_map, pixel_coords);
+  if (is_pixel_set.r >= 0.999) {
     return;
   }
 
@@ -112,6 +113,7 @@ void update(ivec2 chunk_start, ivec2 offset) {
     attempt_result = ATTEMPT_PIXEL_BLOCKED;
     
     ivec2 velocity;
+    vec4 previous_velocity;
     for (int i = 0; i < 3 && attempt_result == ATTEMPT_PIXEL_BLOCKED; i++) {
       if (i == 0) {
         velocity = ivec2(0, -1);
@@ -136,8 +138,10 @@ void update(ivec2 chunk_start, ivec2 offset) {
   
   if (attempt_result == ATTEMPT_SUCCEEDS) {
     imageStore(img_output, pixel_coords, vec4(0, 0, 0, 0));
+    imageStore(velocity_map, pixel_coords, vec4(0, 0, 0, 1));
   } else if (attempt_result == ATTEMPT_PIXEL_BLOCKED) {
     imageStore(update_map, pixel_coords, vec4(1, 1, 1, 1));
+    imageStore(velocity_map, pixel_coords, vec4(0, 0, 0, 1));
   }
 }
 
@@ -162,7 +166,7 @@ int attempt_move_pixel(ivec2 pixel, ivec2 chunk_start, ivec2 velocity, vec4 curr
     }
 
     if (pixel_in_texture(next_coords) && !pixel_taken(next_coords)) {
-      write_pixel(next_coords, current_color);
+      write_pixel(next_coords, current_color, pixel);
       return ATTEMPT_SUCCEEDS;
     } 
 
@@ -184,15 +188,12 @@ bool pixel_in_texture(ivec2 pixel) {
   return  pixel.x >= 0 && pixel.y >= 0 && pixel.x < 512 && pixel.y < 512;
 }
 
-void write_pixel(ivec2 pixel, vec4 color) {
+void write_pixel(ivec2 pixel, vec4 color, ivec2 previous_pixel) {
   imageStore(img_output, pixel, color);
-  imageStore(update_map, pixel, vec4(1, 1, 1, 1));
+  // We don't use velocity because of some obscure bug :(
+  imageStore(velocity_map, pixel, vec4(abs(previous_pixel.x - pixel.x), abs(previous_pixel.y - pixel.y), 0, 0));
+  imageStore(update_map, pixel, vec4(1, 0, 0, 1));
 }
 
-
-bool pixel_already_set(ivec2 pixel) {
-  vec4 is_pixel_set = imageLoad(update_map, pixel);
-  return is_pixel_set.r >= 0.999;
-}
 
 

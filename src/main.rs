@@ -114,9 +114,11 @@ fn main() {
         gl::BindBuffer(gl::ARRAY_BUFFER, 0); // unbind the buffer
     }
 
+    // TODO: 3D texture 
+
     // TODO: this is just test code to make compute shader work, we need abstractions to make this prettier and more generic
     // dimensions of the image
-    let rust_image = res.load_image("textures/fragment_water_test.png")
+    let rust_image = res.load_image("textures/water_test.png")
         .unwrap()
         .into_rgba();
     
@@ -171,6 +173,30 @@ fn main() {
         gl::BindImageTexture(1, updated_map_tex, 0, gl::FALSE, 0, gl::READ_WRITE, gl::R8);
     }
     let updated_map_tex = updated_map_tex;
+
+    let mut velocity_map_tex: gl::types::GLuint = 0;
+    unsafe { 
+        gl::ActiveTexture(gl::TEXTURE2);
+        gl::GenTextures(1, &mut velocity_map_tex);
+        gl::BindTexture(gl::TEXTURE_2D, velocity_map_tex);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_BORDER as i32);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as i32);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
+        gl::TexImage2D(
+            gl::TEXTURE_2D, 
+            0, 
+            gl::RG32F as i32, 
+            512,
+            512,
+            0, 
+            gl::RG, 
+            gl::UNSIGNED_BYTE, 
+            std::ptr::null()
+        );
+        gl::BindImageTexture(2, velocity_map_tex, 0, gl::FALSE, 0, gl::READ_WRITE, gl::RG32F);
+    }
+    let velocity_map_tex = velocity_map_tex;
 
     let mut vao: gl::types::GLuint = 0;
     unsafe {
@@ -267,6 +293,8 @@ fn main() {
         gl::BindTexture(gl::TEXTURE_2D, tex_output);
         gl::ActiveTexture(gl::TEXTURE1);
         gl::BindTexture(gl::TEXTURE_2D, updated_map_tex);
+        gl::ActiveTexture(gl::TEXTURE2);
+        gl::BindTexture(gl::TEXTURE_2D, velocity_map_tex);
     }
 
     // TODO: put in utility
@@ -334,7 +362,7 @@ fn main() {
         unsafe {
             // TODO: keybinding to select desired texture at runtime instead ..
             // gl::ActiveTexture(gl::TEXTURE0);
-            // gl::BindTexture(gl::TEXTURE_2D, updated_map_tex);
+            // gl::BindTexture(gl::TEXTURE_2D, velocity_map_tex);
             gl::Clear(gl::COLOR_BUFFER_BIT);
             gl::BindVertexArray(vao);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, i_vbo);
