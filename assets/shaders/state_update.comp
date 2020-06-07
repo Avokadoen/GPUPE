@@ -113,23 +113,18 @@ void update(ivec2 chunk_start, ivec2 offset) {
     attempt_result = ATTEMPT_PIXEL_BLOCKED;
     
     ivec2 velocity;
-    vec4 previous_velocity;
     for (int i = 0; i < 3 && attempt_result == ATTEMPT_PIXEL_BLOCKED; i++) {
       if (i == 0) {
         velocity = ivec2(0, -1);
       } else if (i == 1) {
-        // hack to make water act more natural while the concept of velocity is non-existing
-        if (pixel_coords.x < 256) {
-          velocity = ivec2(-1, 0);
-        } else {
-          velocity = ivec2(1, 0);
-        }  
-      } else {
-        if (pixel_coords.x < 256) {
-          velocity = ivec2(1, 0);
+        vec4 prev_velocity = imageLoad(velocity_map, pixel_coords);
+        if (abs(prev_velocity.x) > 0) {
+          velocity = ivec2(prev_velocity.xy);
         } else {
           velocity = ivec2(-1, 0);
         }
+      } else {
+        velocity.x *= -1;
       }
 
       attempt_result = attempt_move_pixel(pixel_coords, chunk_start, velocity, current_color);
@@ -140,7 +135,7 @@ void update(ivec2 chunk_start, ivec2 offset) {
     imageStore(img_output, pixel_coords, vec4(0, 0, 0, 0));
     imageStore(velocity_map, pixel_coords, vec4(0, 0, 0, 1));
   } else if (attempt_result == ATTEMPT_PIXEL_BLOCKED) {
-    imageStore(update_map, pixel_coords, vec4(1, 1, 1, 1));
+    //imageStore(update_map, pixel_coords, vec4(1, 1, 1, 1));
     imageStore(velocity_map, pixel_coords, vec4(0, 0, 0, 1));
   }
 }
