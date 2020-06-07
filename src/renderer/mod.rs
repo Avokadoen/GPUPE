@@ -2,5 +2,6 @@
 
 pub mod shader;
 pub mod program;
+pub mod texture;
 
 mod utils;

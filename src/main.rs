@@ -15,7 +15,8 @@ mod resources;
 
 use resources::Resources;
 use renderer::{
-    program::Program, 
+    program::Program,
+    texture::Texture, 
 };
 
 use utility::{
@@ -116,87 +117,15 @@ fn main() {
 
     // TODO: 3D texture 
 
-    // TODO: this is just test code to make compute shader work, we need abstractions to make this prettier and more generic
-    // dimensions of the image
-    let rust_image = res.load_image("textures/water_test.png")
+    // // TODO: this is just test code to make compute shader work, we need abstractions to make this prettier and more generic
+    // // dimensions of the image
+    let image = res.load_image("textures/water_test.png")
         .unwrap()
         .into_rgba();
-    
-    // TODO: avoid copy
-    let rust_image = image::imageops::flip_vertical(&rust_image);
+    let state_output = Texture::from_image(image, gl::TEXTURE0, 0, gl::RGBA32F, gl::RGBA);
 
-    // TODO: if image width & heigth != texture size
-
-    let mut compute_tex_output: gl::types::GLuint = 0;
-    unsafe { 
-        gl::GenTextures(1, &mut compute_tex_output);
-        gl::BindTexture(gl::TEXTURE_2D, compute_tex_output);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_BORDER as i32);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as i32);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
-        gl::TexImage2D(
-            gl::TEXTURE_2D, 
-            0, 
-            gl::RGBA32F as i32, 
-            rust_image.width() as i32,  // NOTE: CHUNK SIZE
-            rust_image.height() as i32,  // NOTE: CHUNK SIZE
-            0, 
-            gl::RGBA, 
-            gl::UNSIGNED_BYTE, 
-            rust_image.into_raw().as_ptr() as *const std::ffi::c_void
-        );
-        gl::BindImageTexture(0, compute_tex_output, 0, gl::FALSE, 0, gl::READ_WRITE, gl::RGBA32F);
-    }
-    let tex_output = compute_tex_output;
-
-    let mut updated_map_tex: gl::types::GLuint = 0;
-    unsafe { 
-        gl::ActiveTexture(gl::TEXTURE1);
-        gl::GenTextures(1, &mut updated_map_tex);
-        gl::BindTexture(gl::TEXTURE_2D, updated_map_tex);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_BORDER as i32);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as i32);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
-        gl::TexImage2D(
-            gl::TEXTURE_2D, 
-            0, 
-            gl::RED as i32, 
-            512,
-            512,
-            0, 
-            gl::RED, 
-            gl::UNSIGNED_BYTE, 
-            std::ptr::null()
-        );
-        gl::BindImageTexture(1, updated_map_tex, 0, gl::FALSE, 0, gl::READ_WRITE, gl::R8);
-    }
-    let updated_map_tex = updated_map_tex;
-
-    let mut velocity_map_tex: gl::types::GLuint = 0;
-    unsafe { 
-        gl::ActiveTexture(gl::TEXTURE2);
-        gl::GenTextures(1, &mut velocity_map_tex);
-        gl::BindTexture(gl::TEXTURE_2D, velocity_map_tex);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_BORDER as i32);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as i32);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
-        gl::TexImage2D(
-            gl::TEXTURE_2D, 
-            0, 
-            gl::RG32F as i32, 
-            512,
-            512,
-            0, 
-            gl::RG, 
-            gl::UNSIGNED_BYTE, 
-            std::ptr::null()
-        );
-        gl::BindImageTexture(2, velocity_map_tex, 0, gl::FALSE, 0, gl::READ_WRITE, gl::RG32F);
-    }
-    let velocity_map_tex = velocity_map_tex;
+    let updated_map = Texture::new(gl::TEXTURE1, 1, gl::R8, gl::RED);
+    let velocity_map = Texture::new(gl::TEXTURE2, 2, gl::RG32F, gl::RG);
 
     let mut vao: gl::types::GLuint = 0;
     unsafe {
@@ -288,14 +217,9 @@ fn main() {
 
     // We only use these two textures, so we bind them before render loop and forget about them
     // this is somewhat bad practice, but in our case the consequenses are non existant
-    unsafe {
-        gl::ActiveTexture(gl::TEXTURE0);
-        gl::BindTexture(gl::TEXTURE_2D, tex_output);
-        gl::ActiveTexture(gl::TEXTURE1);
-        gl::BindTexture(gl::TEXTURE_2D, updated_map_tex);
-        gl::ActiveTexture(gl::TEXTURE2);
-        gl::BindTexture(gl::TEXTURE_2D, velocity_map_tex);
-    }
+    state_output.bind();
+    updated_map.bind();
+    velocity_map.bind();
 
     // TODO: put in utility
     let mut now = Instant::now();
@@ -361,9 +285,7 @@ fn main() {
 
         unsafe {
             // TODO: keybinding to select desired texture at runtime instead ..
-            // gl::ActiveTexture(gl::TEXTURE0);
-            // gl::BindTexture(gl::TEXTURE_2D, velocity_map_tex);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
+            gl::Clear(gl::COLOR_BUFFER_BIT); // This doesnt really do anything?
             gl::BindVertexArray(vao);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, i_vbo);
 
@@ -376,8 +298,6 @@ fn main() {
 
             gl::BindVertexArray(0);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
-            // gl::ActiveTexture(gl::TEXTURE0);
-            // gl::BindTexture(gl::TEXTURE_2D, tex_output);
         }
 
         window.gl_swap_window();
