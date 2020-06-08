@@ -1,15 +1,18 @@
 use gl::types::{GLuint, GLenum};
 
+#[allow(dead_code)]
 pub struct Texture {
     id: u32,
     active: GLenum,
 }
 
 impl Texture {
+    #[allow(dead_code)]
     pub fn id(&self) -> u32 {
         self.id
     }
 
+    #[allow(dead_code)]
     pub fn bind(&self) {
         unsafe {
             gl::ActiveTexture(self.active);
@@ -17,6 +20,7 @@ impl Texture {
         }
     }
 
+    #[allow(dead_code)]
     pub fn unbind(&self) {
         unsafe {
             gl::ActiveTexture(self.active);
@@ -25,6 +29,7 @@ impl Texture {
     }
 
     // TODO: program should have configureable texture size
+    #[allow(dead_code)]
     pub fn new(active: GLenum, bind_slot: GLuint, internal_format: GLenum, gltype: GLenum) -> Self {
         let id = prep_texture(active);
         unsafe { 
@@ -48,6 +53,7 @@ impl Texture {
         }
     }
 
+    #[allow(dead_code)]
     pub fn from_image(image: image::RgbaImage, active: GLenum, bind_slot: GLuint, internal_format: GLenum, gltype: GLenum) -> Self {
         let flip_image = image::imageops::flip_vertical(&image);
 

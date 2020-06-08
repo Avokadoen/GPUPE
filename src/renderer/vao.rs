@@ -1,24 +1,27 @@
 use gl::types::{
     GLuint,
     GLint,
-    GLenum,
 };
 
+#[allow(dead_code)]
 pub struct VertexAttributePointer {
     pub location: GLuint,
     pub size: GLint,
     pub offset: usize
 }
 
+#[allow(dead_code)]
 pub struct VertexArrayObject {
     id: u32,
 }
 
 impl VertexArrayObject {
+    #[allow(dead_code)]
     pub fn id(&self) -> u32 {
         self.id
     }
 
+    #[allow(dead_code)]
     pub fn bind(&self) {
         unsafe {
             gl::BindVertexArray(self.id);
@@ -26,6 +29,7 @@ impl VertexArrayObject {
     }
 
     // TODO: should this be part of impl?
+    #[allow(dead_code)]
     pub fn unbind(&self) {
         unsafe {
             gl::BindVertexArray(0);
@@ -33,6 +37,7 @@ impl VertexArrayObject {
     }
 
     // TODO: VBO type
+    #[allow(dead_code)]
     pub fn new(attributes: Vec<VertexAttributePointer>, components: usize, vbo: u32) -> Self {
         let mut id: GLuint = 0;
 
