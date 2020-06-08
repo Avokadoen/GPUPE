@@ -17,6 +17,10 @@ use resources::Resources;
 use renderer::{
     program::Program,
     texture::Texture, 
+    vao::{
+        VertexArrayObject,
+        VertexAttributePointer
+    }
 };
 
 use utility::{
@@ -123,41 +127,55 @@ fn main() {
         .unwrap()
         .into_rgba();
     let state_output = Texture::from_image(image, gl::TEXTURE0, 0, gl::RGBA32F, gl::RGBA);
-
     let updated_map = Texture::new(gl::TEXTURE1, 1, gl::R8, gl::RED);
     let velocity_map = Texture::new(gl::TEXTURE2, 2, gl::RG32F, gl::RG);
 
-    let mut vao: gl::types::GLuint = 0;
-    unsafe {
-        gl::GenVertexArrays(1, &mut vao);
+    let vao = { 
+        let pos = VertexAttributePointer {
+            location: 0,
+            size: 3,
+            offset: 0
+        };
 
-        gl::BindVertexArray(vao);
-        gl::BindBuffer(gl::ARRAY_BUFFER, v_vbo);
+        let uv = VertexAttributePointer {
+            location: 1,
+            size: 2,
+            offset: 3
+        };
 
-        let stride = (5 * std::mem::size_of::<f32>()) as gl::types::GLint;
-        gl::EnableVertexAttribArray(0); // this is "layout (location = 0)" in vertex shader
-        gl::VertexAttribPointer(
-            0,                  // index of the generic vertex attribute ("layout (location = 0)")
-            3,                  // the number of components per generic vertex attribute
-            gl::FLOAT,          // data type
-            gl::FALSE,          // normalized (int-to-float conversion)
-            stride,             // stride (byte offset between consecutive attributes)
-            std::ptr::null()    // offset of the first component
-        );
+        VertexArrayObject::new(vec![pos, uv], 5, v_vbo)
+    };
+    // let mut vao: gl::types::GLuint = 0;
+    // unsafe {
+    //     gl::GenVertexArrays(1, &mut vao);
 
-        gl::EnableVertexAttribArray(1); 
-        gl::VertexAttribPointer(
-            1, 
-            2, 
-            gl::FLOAT,
-            gl::FALSE, 
-            stride, 
-            (3 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid
-        );
+    //     gl::BindVertexArray(vao);
+    //     gl::BindBuffer(gl::ARRAY_BUFFER, v_vbo);
 
-        gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-        gl::BindVertexArray(0);
-    }
+    //     let stride = (5 * std::mem::size_of::<f32>()) as gl::types::GLint;
+    //     gl::EnableVertexAttribArray(0); // this is "layout (location = 0)" in vertex shader
+    //     gl::VertexAttribPointer(
+    //         0,                  // index of the generic vertex attribute ("layout (location = 0)")
+    //         3,                  // the number of components per generic vertex attribute
+    //         gl::FLOAT,          // data type
+    //         gl::FALSE,          // normalized (int-to-float conversion)
+    //         stride,             // stride (byte offset between consecutive attributes)
+    //         std::ptr::null()    // offset of the first component
+    //     );
+
+    //     gl::EnableVertexAttribArray(1); 
+    //     gl::VertexAttribPointer(
+    //         1, 
+    //         2, 
+    //         gl::FLOAT,
+    //         gl::FALSE, 
+    //         stride, 
+    //         (3 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid
+    //     );
+
+    //     gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+    //     gl::BindVertexArray(0);
+    // }
 
     // TODO: create a compute shader abstraction, used this in the abstraction somewhere where it can be shared
     // Retrieve work group count limit
@@ -282,11 +300,10 @@ fn main() {
 
         dispatch_compute(&mut state_update_comp);
         triangle_program.set_used();
+        vao.bind();
 
         unsafe {
             // TODO: keybinding to select desired texture at runtime instead ..
-            gl::Clear(gl::COLOR_BUFFER_BIT); // This doesnt really do anything?
-            gl::BindVertexArray(vao);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, i_vbo);
 
             gl::DrawElements(
@@ -296,10 +313,10 @@ fn main() {
                 std::ptr::null()
             );
 
-            gl::BindVertexArray(0);
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
         }
 
+        vao.unbind();
         window.gl_swap_window();
     }
     // texture delete ...
