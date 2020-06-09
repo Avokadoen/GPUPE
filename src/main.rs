@@ -7,7 +7,6 @@ use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 
 use std::path::Path;
-use std::time::Instant;
 
 mod renderer;
 mod utility;
@@ -28,6 +27,7 @@ use utility::{
     camera::Camera2D, 
     input_handler::InputHandler,
     direction::Direction,
+    chronos::Chronos,
 };
 
 // TODO: currently lots of opengl stuff. Move all of it into renderer module
@@ -92,18 +92,6 @@ fn main() {
         gl::ELEMENT_ARRAY_BUFFER
     );
 
-
-    // TODO: 3D texture 
-
-    // // TODO: this is just test code to make compute shader work, we need abstractions to make this prettier and more generic
-    // // dimensions of the image
-    let image = res.load_image("textures/water_test.png")
-        .unwrap()
-        .into_rgba();
-    let state_output = Texture::from_image(image, gl::TEXTURE0, 0, gl::RGBA32F, gl::RGBA);
-    let updated_map = Texture::new(gl::TEXTURE1, 1, gl::R8, gl::RED);
-    let velocity_map = Texture::new(gl::TEXTURE2, 2, gl::RG32F, gl::RG);
-
     let vao = { 
         let pos = VertexAttributePointer {
             location: 0,
@@ -119,6 +107,15 @@ fn main() {
 
         VertexArrayObject::new(vec![pos, uv], 5, vertices.id())
     };
+
+    // TODO: 3D texture 
+    // TODO: this is just test code to make compute shader work, we need abstractions to make this prettier and more generic
+    // dimensions of the image
+    //      - Loading of images should normalize pixels to pixels of known type
+    let image = res.load_image("textures/water_test.png").unwrap().into_rgba();
+    let state_output = Texture::from_image(image, gl::TEXTURE0, 0, gl::RGBA32F, gl::RGBA);
+    let updated_map = Texture::new(gl::TEXTURE1, 1, gl::R8, gl::RED);
+    let velocity_map = Texture::new(gl::TEXTURE2, 2, gl::RG32F, gl::RG);
 
     // TODO: create a compute shader abstraction, used this in the abstraction somewhere where it can be shared
     // Retrieve work group count limit
@@ -182,39 +179,26 @@ fn main() {
     updated_map.bind();
     velocity_map.bind();
 
-    // TODO: put in utility
-    let mut now = Instant::now();
-    let mut last: Instant;
-    let mut delta_time: f64;
-
-    // TODO: put in utlity
-    let mut second_tick: f64 = 0.0;
-    let mut frames: i32 = 0;
-
+    let mut chronos: Chronos = Default::default();
     let mut camera: Camera2D = Default::default();
     let mut input_handler: InputHandler = Default::default();
 
     // TODO: lock screen from being stretched
     let mut event_pump = sdl.event_pump().unwrap();
     'main: loop {
-        last = now;
-        now = Instant::now();
-        delta_time = (last.elapsed().as_millis() - now.elapsed().as_millis()) as f64 / 1000.0;
-        second_tick += delta_time;
-        frames += 1;
-        if second_tick > 1.0 {
-            second_tick = 0.0;
-            println!("fps: {}", frames);
-            frames = 0;
-        }
+        chronos.tick();
 
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit { .. } => break 'main,
-                Event::KeyDown { keycode, .. } => input_handler.on_key_down(keycode),
+                Event::KeyDown { keycode, .. } => match keycode {
+                    //Some(Keycode::Y) => dispatch_compute(&mut state_update_comp),
+                    Some(_) => input_handler.on_key_down(keycode),
+                    _ => (),
+                }
                 Event::KeyUp { keycode, .. } => input_handler.on_key_up(keycode),
                 Event::MouseWheel { y, ..} => {
-                    camera.modify_zoom(delta_time, y as f32);
+                    camera.modify_zoom(chronos.delta_time(), y as f32);
                 }, 
                 _ => {}
             }
@@ -232,7 +216,7 @@ fn main() {
             }
         }
 
-        if camera.commit_pan_zoom(delta_time) {
+        if camera.commit_pan_zoom(chronos.delta_time()) {
             // TODO: error handling for this
             match triangle_program.set_vector3_f32("cameraPos", camera.position()) {
                 Ok(()) => (),
@@ -248,6 +232,9 @@ fn main() {
         indices.bind();
 
         unsafe {
+            // gl::ActiveTexture(gl::TEXTURE0);
+            // gl::BindTexture(gl::TEXTURE_2D, updated_map.id());
+            gl::Clear(gl::COLOR_BUFFER_BIT);
             gl::DrawElements(
                 gl::TRIANGLES, 
                 indices.length(), 
