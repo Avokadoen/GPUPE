@@ -5,5 +5,6 @@ pub mod shader;
 pub mod program;
 pub mod texture;
 pub mod vao;
+pub mod vbo;
 
 mod utils;
