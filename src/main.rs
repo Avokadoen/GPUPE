@@ -112,7 +112,7 @@ fn main() {
     // TODO: this is just test code to make compute shader work, we need abstractions to make this prettier and more generic
     // dimensions of the image
     //      - Loading of images should normalize pixels to pixels of known type
-    let image = res.load_image("textures/water_test.png").unwrap().into_rgba();
+    let image = res.load_image("textures/dirt_water_test.png").unwrap().into_rgba();
     let state_output = Texture::from_image(image, gl::TEXTURE0, 0, gl::RGBA32F, gl::RGBA);
     let updated_map = Texture::new(gl::TEXTURE1, 1, gl::R8, gl::RED);
     let velocity_map = Texture::new(gl::TEXTURE2, 2, gl::RG32F, gl::RG);
@@ -192,7 +192,7 @@ fn main() {
             match event {
                 Event::Quit { .. } => break 'main,
                 Event::KeyDown { keycode, .. } => match keycode {
-                    //Some(Keycode::Y) => dispatch_compute(&mut state_update_comp),
+                    // Some(Keycode::Y) => dispatch_compute(&mut state_update_comp),
                     Some(_) => input_handler.on_key_down(keycode),
                     _ => (),
                 }
@@ -223,7 +223,6 @@ fn main() {
                 Err(err) => println!("got error setting cameraPos: {}", err)
             }
         }
-
 
         dispatch_compute(&mut state_update_comp);
         triangle_program.set_used();

@@ -109,7 +109,7 @@ void update(ivec2 chunk_start, ivec2 offset) {
 
   vec4 current_color = imageLoad(img_output, pixel_coords);
   int attempt_result = ATTEMPT_SUCCEEDS;
-  if (current_color.b > 0) { // TODO: logic to select only water pixels
+  if (current_color.w >= 0.989) { // TODO: logic to select only water pixels
     attempt_result = ATTEMPT_PIXEL_BLOCKED;
     
     ivec2 velocity;
@@ -126,9 +126,11 @@ void update(ivec2 chunk_start, ivec2 offset) {
       } else {
         velocity.x *= -1;
       }
-
       attempt_result = attempt_move_pixel(pixel_coords, chunk_start, velocity, current_color);
     }
+  } else if (current_color.w >= 0.97 && current_color.w < 0.989) {
+    ivec2 velocity = ivec2(0, -1);
+    attempt_result = attempt_move_pixel(pixel_coords, chunk_start, velocity, current_color);
   }
   
   if (attempt_result == ATTEMPT_SUCCEEDS) {
@@ -152,6 +154,7 @@ bool valid_change_for_pass(ivec2 velocity) {
   return true;
 }
 
+// TODO: this should also return color of pixel that blocked
 int attempt_move_pixel(ivec2 pixel, ivec2 chunk_start, ivec2 velocity, vec4 current_color) {
     ivec2 next_coords = pixel + velocity;
     // if we are in the intersection between a chunk we should not care about chunks in a non fragment passs
@@ -185,7 +188,6 @@ bool pixel_in_texture(ivec2 pixel) {
 
 void write_pixel(ivec2 pixel, vec4 color, ivec2 previous_pixel) {
   imageStore(img_output, pixel, color);
-  // We don't use velocity because of some obscure bug :(
   imageStore(velocity_map, pixel, vec4(abs(previous_pixel.x - pixel.x), abs(previous_pixel.y - pixel.y), 0, 0));
   imageStore(update_map, pixel, vec4(1, 0, 0, 1));
 }
