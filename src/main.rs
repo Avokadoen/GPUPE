@@ -6,7 +6,10 @@ extern crate cgmath;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 
+use cgmath::Vector4;
+
 use std::path::Path;
+use std::ffi::CString;
 
 mod renderer;
 mod utility;
@@ -28,13 +31,15 @@ use utility::{
     input_handler::InputHandler,
     direction::Direction,
     chronos::Chronos,
+    pixel::Pixel,
+    shader_builder::ShaderBuilder,
 };
 
 // TODO: currently lots of opengl stuff. Move all of it into renderer module
 
 fn main() {
     let res = Resources::from_relative_path(Path::new("assets")).unwrap();
-
+    
     let sdl = sdl2::init().unwrap();
     let video_subsystem = sdl.video().unwrap();
 
@@ -143,7 +148,36 @@ fn main() {
     let _work_group_invocation_limit = work_group_invocation_limit;
 
     let mut state_update_comp = {
-        let shader = renderer::shader::Shader::from_resources(&res, "shaders/state_update.comp").unwrap();
+        let pixel = Pixel::new(0.99, Vector4::new(0.156, 0.235, 0.392, 0.3), 
+        String::from("
+        attempt_result = ATTEMPT_PIXEL_BLOCKED;
+    
+        ivec2 velocity;
+        for (int i = 0; i < 3 && attempt_result == ATTEMPT_PIXEL_BLOCKED; i++) {
+        if (i == 0) {
+            velocity = ivec2(0, -1);
+        } else if (i == 1) {
+            vec4 prev_velocity = imageLoad(velocity_map, pixel_coords);
+            if (abs(prev_velocity.x) > 0) {
+            velocity = ivec2(prev_velocity.xy);
+            } else {
+            velocity = ivec2(-1, 0);
+            }
+        } else {
+            velocity.x *= -1;
+        }
+        attempt_result = attempt_move_pixel(pixel_coords, chunk_start, velocity, current_color);
+        }")).unwrap();
+    
+        let shader_str = ShaderBuilder::new("shaders/state_update_template.comp", &res).unwrap().append_pixel(pixel).build();
+        println!("shader: \n{}", shader_str);
+        let mut shader_bytes = shader_str.into_bytes();
+        shader_bytes.push(0);
+
+        // TODO: convertion should happen in string
+        let c_str_shader = unsafe { CString::from_vec_unchecked(shader_bytes) };
+
+        let shader = renderer::shader::Shader::from_source(c_str_shader.as_c_str(), gl::COMPUTE_SHADER).unwrap();
         Program::from_shaders(&[shader]).unwrap()
     }; 
 

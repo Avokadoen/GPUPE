@@ -6,6 +6,8 @@ pub struct Texture {
     active: GLenum,
 }
 
+// TODO: impl Drop glDeleteTextures 
+
 impl Texture {
     #[allow(dead_code)]
     pub fn id(&self) -> u32 {
