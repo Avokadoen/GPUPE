@@ -174,7 +174,7 @@ fn main() {
         let mut shader_bytes = shader_str.into_bytes();
         shader_bytes.push(0);
 
-        // TODO: convertion should happen in string
+        // TODO: convertion should happen in shader
         let c_str_shader = unsafe { CString::from_vec_unchecked(shader_bytes) };
 
         let shader = renderer::shader::Shader::from_source(c_str_shader.as_c_str(), gl::COMPUTE_SHADER).unwrap();
