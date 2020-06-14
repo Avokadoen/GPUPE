@@ -1,6 +1,7 @@
 use cgmath::Vector4;
 use std::string::String;
 
+#[repr(C)]
 pub struct Pixel {
     /// used to select proper pixel struct from a loaded texture
     alpha_id: f64,
