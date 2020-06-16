@@ -148,29 +148,39 @@ fn main() {
     let _work_group_invocation_limit = work_group_invocation_limit;
 
     let mut state_update_comp = {
-        let pixel = Pixel::new(0.99, Vector4::new(0.156, 0.235, 0.392, 0.3), 
+        let water_pixel = Pixel::new(0.99, Vector4::new(0.156, 0.235, 0.392, 0.3), 
         String::from("
         attempt_result = ATTEMPT_PIXEL_BLOCKED;
     
         ivec2 velocity;
         for (int i = 0; i < 3 && attempt_result == ATTEMPT_PIXEL_BLOCKED; i++) {
-        if (i == 0) {
-            velocity = ivec2(0, -1);
-        } else if (i == 1) {
-            vec4 prev_velocity = imageLoad(velocity_map, pixel_coords);
-            if (abs(prev_velocity.x) > 0) {
-            velocity = ivec2(prev_velocity.xy);
+            if (i == 0) {
+                velocity = ivec2(0, -1);
+            } else if (i == 1) {
+                vec4 prev_velocity = imageLoad(velocity_map, pixel_coords);
+                if (abs(prev_velocity.x) > 0) {
+                velocity = ivec2(prev_velocity.xy);
+                } else {
+                velocity = ivec2(-1, 0);
+                }
             } else {
-            velocity = ivec2(-1, 0);
+                velocity.x *= -1;
             }
-        } else {
-            velocity.x *= -1;
-        }
-        attempt_result = attempt_move_pixel(pixel_coords, chunk_start, velocity, current_color);
+            attempt_result = attempt_move_pixel(pixel_coords, chunk_start, velocity, current_color);
         }")).unwrap();
+
+        let dirt_pixel = Pixel::new(0.98, Vector4::new(0.235, 0.157, 0.027, 1.0), 
+        String::from("
+        ivec2 velocity = ivec2(0, -1);
+        attempt_result = attempt_move_pixel(pixel_coords, chunk_start, velocity, current_color);
+        ")).unwrap();
     
-        let shader_str = ShaderBuilder::new("shaders/state_update_template.comp", &res).unwrap().append_pixel(pixel).build();
-        println!("shader: \n{}", shader_str);
+        let shader_str = ShaderBuilder::new("shaders/state_update_template.comp", &res).unwrap()
+            .append_pixel(water_pixel)
+            .append_pixel(dirt_pixel)
+            .build();
+
+        println!("{}", shader_str);
         let mut shader_bytes = shader_str.into_bytes();
         shader_bytes.push(0);
 

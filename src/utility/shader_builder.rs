@@ -48,7 +48,7 @@ impl ShaderBuilder {
         for pixel in &self.pixels {
             let if_word = match first_if {
                 true => "if",
-                false => "else if",
+                false => " else if",
             };
             first_if = false;
 
